@@ -1,0 +1,174 @@
+#
+# Copyright (C) BABEC. All rights reserved.
+# Copyright (C) THL A29 Limited, a Tencent company. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+auth_type: "permissionedWithCert"   # permissionedWithCert / permissioned-with-key / public
+
+log:
+  config_file: ../config/wx-org5/log.yml          # config file of logger configuration.
+
+crypto_engine: tjfoc #crypto engine config setting, support gmssl, tencentsm and tjfoc
+
+blockchain:
+  - chainId: chain1
+    genesis: ../config/wx-org5/chainconfig/bc1.yml
+#  - chainId: chain2
+#    genesis: ../config/wx-org5/chainconfig/bc2.yml
+#  - chainId: chain3
+#    genesis: ../config/wx-org5/chainconfig/bc3.yml
+#  - chainId: chain4
+#    genesis: ../config/wx-org5/chainconfig/bc4.yml
+
+node:
+  org_id:            wx-org5.chainmaker.org
+  priv_key_file:     ../config/wx-org5/certs/node/consensus1/consensus1.sign.key
+  cert_file:         ../config/wx-org5/certs/node/consensus1/consensus1.sign.crt
+  cert_cache_size:   1000
+  cert_key_usage_check: true
+
+net:
+  provider: LibP2P
+  listen_addr: /ip4/0.0.0.0/tcp/11305
+  seeds:
+    - "/ip4/127.0.0.1/tcp/11301/p2p/QmcQHCuAXaFkbcsPUj7e37hXXfZ9DdN7bozseo5oX4qiC4"
+    - "/ip4/127.0.0.1/tcp/11302/p2p/QmeyNRs2DwWjcHTpcVHoUSaDAAif4VQZ2wQDQAUNDP33gH"
+    - "/ip4/127.0.0.1/tcp/11303/p2p/QmXf6mnQDBR9aHauRmViKzSuZgpumkn7x6rNxw1oqqRr45"
+    - "/ip4/127.0.0.1/tcp/11304/p2p/QmRRWXJpAVdhFsFtd9ah5F4LDQWFFBDVKpECAF8hssqj6H"
+#    - "/ip4/127.0.0.1/tcp/11305/p2p/QmVSCXfPweL1GRSNt8gjcw1YQ2VcCirAtTdLKGkgGKsHqi"
+#    - "/ip4/127.0.0.1/tcp/11306/p2p/QmPpx5dTZ4A1GQ9a4nsSoMJ72AtT3VDgcX2EVKAFxJUHb1"
+#    - "/ip4/127.0.0.1/tcp/11307/p2p/QmVGSXfz6vgXBjWiZh5rV8T5nutevvunHAfEoe6Sh5Xcyx"
+  tls:
+    enabled: true
+    priv_key_file: ../config/wx-org5/certs/node/consensus1/consensus1.tls.key
+    cert_file:     ../config/wx-org5/certs/node/consensus1/consensus1.tls.crt
+
+# Other txpool settings can be found in tx_Pool_config.go
+txpool:
+  # tx_pool type, can be single, normal, batch.
+  # By default the tx_pool type is normal.
+  # Note: please delete dump_tx_wal folder in storage.store_path when change tx_pool type
+  pool_type: "normal"
+
+  # Max common transaction count in tx_pool.
+  # If tx_pool is full, the following transactions will be discarded.
+  max_txpool_size: 50000
+
+  # Max config transaction count in tx_pool.
+  max_config_txpool_size: 10
+
+  # Whether dump unpacked config and common transactions in queue when stop node,
+  # and replay these transactions when restart node.
+  is_dump_txs_in_queue: true
+
+  # Common transaction queue num, only for normal tx_pool.
+  # Note: the num should be an exponent of 2 and less than 256, such as, 1, 2, 4, 8, 16, ..., 256
+  common_queue_num: 8
+
+  # The number of transactions contained in a batch, for normal and batch tx_pool.
+  # Note: make sure that block.block_tx_capacity in bc.yml is an integer multiple of batch_max_size
+  batch_max_size: 100
+
+  # Interval of creating a transaction batch, for normal and batch tx_pool, in millisecond(ms).
+  batch_create_timeout: 50
+
+rpc:
+  provider: grpc
+  port: 12305
+  tls:
+    # TLS模式:
+    #   disable - 不启用TLS
+    #   oneway  - 单向认证
+    #   twoway  - 双向认证
+    #mode: disable
+    #mode: oneway
+    mode:           twoway
+    priv_key_file:  ../config/wx-org5/certs/node/consensus1/consensus1.tls.key
+    cert_file:      ../config/wx-org5/certs/node/consensus1/consensus1.tls.crt
+
+monitor:
+  enabled: false
+  port: 14321
+
+pprof:
+  enabled: false
+  port: 24321
+
+storage:
+  store_path: ../data/org5/ledgerData1
+  blockdb_config:
+    provider: leveldb
+    leveldb_config:
+      store_path: ../data/org5/blocks
+  statedb_config:
+    provider: leveldb
+    leveldb_config:
+      store_path: ../data/org5/state
+  historydb_config:
+    provider: leveldb
+    leveldb_config:
+      store_path: ../data/org5/history
+  resultdb_config:
+    provider: leveldb
+    leveldb_config:
+      store_path: ../data/org5/result
+  disable_contract_eventdb: true  #是否禁止合约事件存储功能，默认为true，如果设置为false,需要配置mysql
+  contract_eventdb_config:
+    provider: sql                 #如果开启contract event db 功能，需要指定provider为sql
+    sqldb_config:
+      sqldb_type: mysql           #contract event db 只支持mysql
+      dsn: root:password@tcp(127.0.0.1:3306)/  #mysql的连接信息，包括用户名、密码、ip、port等，示例：root:admin@tcp(127.0.0.1:3306)/
+
+debug:
+  # 是否开启CLI功能，过度期间使用
+  is_cli_open: true
+  is_http_open: false
+
+vm:
+  # Golang runtime in docker container
+  go:
+    # Enable docker go virtual machine, default: false
+    enable: false
+    # Mount data path in chainmaker, include contracts, uds socks
+    data_mount_path: ../data/org5/go
+    # Mount log path in chainmaker
+    log_mount_path: ../log/org5/go
+    # Communication protocol, used for chainmaker and docker manager communication
+    # 1. tcp: docker vm uses TCP to communicate with chain
+    # 2. uds: docker vm uses unix domain socket to communicate with chain
+    protocol: tcp
+    # If use a customized VM configuration file, supplement it; else, do not configure
+    # Priority: chainmaker.yml > vm.yml > default settings
+    # dockervm_config_path: /config_path/vm.yml
+    # Whether to print log on terminal
+    log_in_console: false
+    # Log level of docker vm go
+    log_level: INFO
+
+    # Grpc max send message size of the following 2 servers, Default size is 100, unit: MB
+    max_send_msg_size: 100
+    # Grpc max receive message size of the following 2 servers, Default size is 100, unit: MB
+    max_recv_msg_size: 100
+    # Grpc dialing timeout of the following 2 servers, default size is 100, uint: s
+    dial_timeout: 10
+
+    # max process num for execute original txs
+    max_concurrency: 20
+
+    #  Configs of docker runtime server (handle messages with contract sandbox)
+    runtime_server:
+      # Runtime server port, default 32351
+      port: 32355
+
+    # Configs of contract engine server (handle messages with contract engine)
+    contract_engine:
+      # Docker vm contract engine server host, default 127.0.0.1
+      host: 127.0.0.1
+      # Docker vm contract engine server port, default 22351
+      port: 22355
+      # Max number of connection created to connect docker vm service
+      max_connection: 5
+
+

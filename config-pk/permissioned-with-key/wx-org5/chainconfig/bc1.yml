@@ -1,0 +1,124 @@
+#
+# Copyright (C) BABEC. All rights reserved.
+# Copyright (C) THL A29 Limited, a Tencent company. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+chain_id: chain1                      # 链标识
+version: "2030100"
+sequence: 0                           # 配置版本
+auth_type: "permissionedWithKey"      # 认证类型 permissionedWithCert / permissionedWithKey / public
+
+crypto:
+  hash: SHA256
+
+# 合约支持类型的配置
+contract:
+  enable_sql_support: false
+
+# 虚拟机配置
+vm:
+  addr_type: 2 #0:chainmaker, 1:zxl, 2:ethereum
+  # 虚拟机支持列表
+  support_list:
+    - "wasmer"
+    - "gasm"
+    - "evm"
+    - "dockergo"
+    - "wxvm"
+
+# 交易、区块相关配置
+block:
+  tx_timestamp_verify: true # 是否需要开启交易时间戳校验
+  tx_timeout: 600  # 交易时间戳的过期时间(秒)
+  block_tx_capacity: 100  # 区块中最大交易数
+  block_size: 10  # 区块最大限制，单位MB
+  block_interval: 10 # 出块间隔，单位:ms
+
+# core模块
+core:
+  tx_scheduler_timeout: 10 #  [0, 60] 交易调度器从交易池拿到交易后, 进行调度的时间
+  tx_scheduler_validate_timeout: 10 # [0, 60] 交易调度器从区块中拿到交易后, 进行验证的超时时间
+  consensus_turbo_config:
+    consensus_message_turbo: false # 是否开启共识报文压缩
+    retry_time: 500 # 根据交易ID列表从交易池获取交易的重试次数
+    retry_interval: 20 # 重试间隔，单位:ms
+
+# gas account config
+account_config:
+  # the flag to control if subtracting gas from transaction's origin account when sending tx.
+  enable_gas: false
+  # Deprecated，the default gas count set for admin account.
+  gas_count: 0
+  # the minimum gas count to be subtracted from transaction's origin account for invoking tx.
+  default_gas: 100
+  # the gas price per byte for invoking tx, accurate to 6 digits after the decimal point.
+  default_gas_price: 0.1
+  # the minimum gas count to be subtracted from transaction's origin account for installing|upgrading tx.
+  install_base_gas: 10000
+  # the gas price per byte for installing tx, accurate to 6 digits after the decimal point.
+  install_gas_price: 0.001
+
+#共识配置
+consensus:
+  # 共识类型(0-SOLO,1-TBFT,2-MBFT,3-HOTSTUFF,4-RAFT,10-POW)
+  type: 1
+  # 共识节点列表，组织必须出现在trust_roots的org_id中，每个组织可配置多个共识节点，节点地址采用libp2p格式
+  nodes:
+    - org_id: "wx-org1.chainmaker.org"
+      node_id:
+        - "QmZcFcJFYYoZ3FNNGL88QaszUZwFwuBdFqYh6yPzJURc3s"
+    - org_id: "wx-org2.chainmaker.org"
+      node_id:
+        - "QmXwtuPemSgH5ypzoKvcLdCLbd9jZ25FbpNf7VPjHF3HMS"
+    - org_id: "wx-org3.chainmaker.org"
+      node_id:
+        - "QmRmQLHJoqAYGkuLFaNY6HLzwtTNxr45UJsYpSjdKvBQw2"
+    - org_id: "wx-org4.chainmaker.org"
+      node_id:
+        - "QmURUHTGsuzzjgh1Xg6s92G1Q3gK91A6JEZGPfYNWwJMiT"
+  ext_config: # 扩展字段，记录难度、奖励等其他类共识算法配置
+    - key: aa
+      value: chain01_ext11
+
+# 信任组织和根证书
+trust_roots:
+  - org_id: "wx-org1.chainmaker.org"
+    root:
+      - "../config-pk/permissioned-with-key/wx-org1/public-key/admin/wx-org1.chainmaker.org/admin.pem"
+  - org_id: "wx-org2.chainmaker.org"
+    root:
+      - "../config-pk/permissioned-with-key/wx-org1/public-key/admin/wx-org2.chainmaker.org/admin.pem"
+  - org_id: "wx-org3.chainmaker.org"
+    root:
+      - "../config-pk/permissioned-with-key/wx-org1/public-key/admin/wx-org3.chainmaker.org/admin.pem"
+  - org_id: "wx-org4.chainmaker.org"
+    root:
+      - "../config-pk/permissioned-with-key/wx-org1/public-key/admin/wx-org4.chainmaker.org/admin.pem"
+
+# 权限配置（只能整体添加、修改、删除）
+resource_policies:
+  - resource_name: CHAIN_CONFIG-NODE_ID_UPDATE
+    policy:
+      rule: SELF # 规则（ANY，MAJORITY...，全部大写，自动转大写）
+      org_list: # 组织名称（组织名称，区分大小写）
+      role_list: # 角色名称（role，自动转大写）
+        - admin
+  - resource_name: CHAIN_CONFIG-TRUST_ROOT_ADD
+    policy:
+      rule: MAJORITY
+      org_list:
+      role_list:
+        - admin
+  - resource_name: CHAIN_CONFIG-CERTS_FREEZE
+    policy:
+      rule: ANY
+      org_list:
+      role_list:
+        - admin
+  - resource_name: CONTRACT_MANAGE-INIT_CONTRACT
+    policy:
+      rule: ANY
+      org_list:
+      role_list:

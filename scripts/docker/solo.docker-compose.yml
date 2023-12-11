@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  node1:
+    container_name: cm-solo
+    image: "chainmaker:v2.3.0"
+    restart: always
+    working_dir: "/chainmaker-go/bin"
+    command: "./chainmaker start -c ../config/wx-org1.chainmaker.org/chainmaker.yml > panic.log"
+    ports:
+      - "11301:11301"
+      - "12301:12301"
+    volumes:
+      - ./config/solo/wx-org1.chainmaker.org:/chainmaker-go/config/wx-org1.chainmaker.org
+      - ./tmp_solo/data:/chainmaker-go/data
+      - ./tmp_solo/log:/chainmaker-go/log
+    networks:
+      cm:
+        ipv4_address: 172.33.2.2
+
+networks:
+  cm:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.33.2.0/16
