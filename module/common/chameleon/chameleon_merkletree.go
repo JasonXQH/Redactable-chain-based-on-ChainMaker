@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-var blockHeightToSaltMap map[int][]byte
+//var blockHeightToSaltMap map[int][]byte
 
 func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]byte, error) {
 	var blockHeight = block.Header.BlockHeight
@@ -16,13 +16,13 @@ func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]
 	if err != nil {
 		return nil, err
 	}
-	salt := blockHeightToSaltMap[int(blockHeight)]
+	salt := []byte{1, 2, 3}
 	merkleTreeRoot, _ := ConvertToHashType(merkleTree[len(merkleTree)-1])
 	chameleonMerkleRoot := Hash(merkleTreeRoot, salt)
+	fmt.Println(chameleonMerkleRoot.String())
 	if err != nil {
 		return nil, err
 	}
-
 	return ConvertToBytesType(chameleonMerkleRoot), nil
 
 }

@@ -290,7 +290,6 @@ func FinalizeBlock(
 	aclFailTxs []*commonPb.Transaction,
 	hashType string,
 	logger protocol.Logger) error {
-
 	if aclFailTxs != nil && len(aclFailTxs) > 0 { //nolint: gosimple
 		// append acl check failed txs to the end of block.Txs
 		block.Txs = append(block.Txs, aclFailTxs...)
@@ -477,6 +476,7 @@ func getTxHash(tx *commonPb.Transaction,
 	[]byte, error) {
 	var rwSetHash []byte
 	rwSetHash, err := utils.CalcRWSetHash(hashType, rwSet)
+
 	logger.DebugDynamic(func() string {
 		str := fmt.Sprintf("CalcRWSetHash rwset: %+v ,hash: %x", rwSet, rwSetHash)
 		if len(str) > 1024 {
