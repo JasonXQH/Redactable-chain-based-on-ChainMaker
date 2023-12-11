@@ -25,7 +25,7 @@ func Test(t *testing.T) {
 	h.Write([]byte(test1))
 	test1Hash := common.BytesToHash(h.Sum(nil))
 	test1Salt := UForge(testHash, test1Hash, testSalt).Bytes()
-	fmt.Println("新的test1Salt", test1Salt)
-	fmt.Println("旧的testSalt", testSalt)
+	//fmt.Println("新的test1Salt", test1Salt)
+	//fmt.Println("旧的testSalt", testSalt)
 	fmt.Println(Hash(test1Hash, test1Salt).String())
 }
