@@ -225,6 +225,130 @@ func (bb *BlockBuilder) GenerateNewBlock(
 	return block, timeLasts, nil
 }
 
+// xqh	add
+func (bb *BlockBuilder) GenerateNewBlockWithChameleonHash(
+	proposingHeight uint64, preHash []byte, txBatch []*commonPb.Transaction,
+	batchIds []string, fetchBatches [][]*commonPb.Transaction) (
+	*commonPb.Block, []int64, error) {
+
+	timeLasts := make([]int64, 0)
+	currentHeight, _ := bb.ledgerCache.CurrentHeight()
+	lastBlock := bb.findLastBlockFromCache(proposingHeight, preHash, currentHeight)
+	if lastBlock == nil {
+		return nil, nil, fmt.Errorf("no pre block found [%d] (%x)", proposingHeight-1, preHash)
+	}
+	isConfigBlock := false
+	if len(txBatch) == 1 && utils.IsConfigTx(txBatch[0]) {
+		isConfigBlock = true
+	}
+	block, err := initNewBlock(lastBlock, bb.identity, bb.chainId, bb.chainConf, isConfigBlock)
+	if err != nil {
+		return block, timeLasts, err
+	}
+	if block == nil {
+		bb.log.Warnf("generate new block failed, block == nil")
+		return nil, timeLasts, fmt.Errorf("generate new block failed, block == nil")
+	}
+	// validate tx and verify ACL，split into 2 slice according to result
+	// validatedTxs are txs passed validate and should be executed by contract
+	var aclFailTxs = make([]*commonPb.Transaction, 0) // No need to ACL check, this slice is empty
+	var validatedTxs = txBatch
+
+	// txScheduler handle：
+	// 1. execute transaction and fill the result, include rw set digest, and remove from txBatch
+	// 2. calculate dag and fill into block
+	// 3. fill txs into block
+	// If only part of the txBatch is filled into the Block, consider executing it again
+	ssStartTick := utils.CurrentTimeMillisSeconds()
+	snapshot := bb.snapshotManager.NewSnapshot(lastBlock, block)
+
+	beginDbTick := utils.CurrentTimeMillisSeconds()
+	bb.storeHelper.BeginDbTransaction(snapshot.GetBlockchainStore(), block.GetTxKey())
+
+	vmStartTick := utils.CurrentTimeMillisSeconds()
+	txRWSetMap, contractEventMap, err := bb.txScheduler.Schedule(block, validatedTxs, snapshot)
+
+	ssLasts := beginDbTick - ssStartTick
+	dbLasts := vmStartTick - beginDbTick
+	vmLasts := utils.CurrentTimeMillisSeconds() - vmStartTick
+	timeLasts = append(timeLasts, dbLasts, ssLasts, vmLasts)
+
+	if err != nil {
+		return nil, timeLasts, fmt.Errorf("schedule block(%d,%x) error %s",
+			block.Header.BlockHeight, block.Header.BlockHash, err)
+	}
+
+	// deal with the special situation：
+	// 1. only one tx and schedule time out
+	// 2. package the empty block
+	if !utils.CanProposeEmptyBlock(bb.chainConf.ChainConfig().Consensus.Type) && len(block.Txs) == 0 {
+		return nil, timeLasts, fmt.Errorf("no txs in scheduled block, proposing block ends")
+	}
+
+	finalizeStartTick := utils.CurrentTimeMillisSeconds()
+	err = FinalizeBlock(
+		block,
+		txRWSetMap,
+		aclFailTxs,
+		bb.chainConf.ChainConfig().Crypto.Hash,
+		bb.log)
+	finalizeLasts := utils.CurrentTimeMillisSeconds() - finalizeStartTick
+	if err != nil {
+		return nil, timeLasts, fmt.Errorf("finalizeBlock block(%d,%s) error %s",
+			block.Header.BlockHeight, hex.EncodeToString(block.Header.BlockHash), err)
+	}
+	timeLasts = append(timeLasts, finalizeLasts)
+	// get txs schedule timeout and put back to txpool
+	var txsTimeout = make([]*commonPb.Transaction, 0)
+	if len(txRWSetMap) < len(txBatch) {
+		// if tx not in txRWSetMap, tx should be put back to txpool
+		for _, tx := range txBatch {
+			if _, ok := txRWSetMap[tx.Payload.TxId]; !ok {
+				txsTimeout = append(txsTimeout, tx)
+			}
+		}
+
+		if TxPoolType == batch.TxPoolType {
+			// retry the timeout 's tx and get the new batchIds
+			batchIds, fetchBatches = bb.txPool.ReGenTxBatchesWithRetryTxs(block.Header.BlockHeight, batchIds,
+				block.Txs)
+		} else {
+			RetryAndRemoveTxs(bb.txPool, txsTimeout, nil, bb.log)
+		}
+		block.Header.TxCount = uint32(len(block.Txs))
+	}
+
+	if TxPoolType == batch.TxPoolType {
+		var batchIdBytes []byte
+		// set batchIds into additional data
+		batchIdBytes, err = SerializeTxBatchInfo(batchIds, block.Txs, fetchBatches, bb.log)
+		if err != nil {
+			return nil, timeLasts, fmt.Errorf("finalizeBlock block(%d,%s) error %s",
+				block.Header.BlockHeight, hex.EncodeToString(block.Header.BlockHash), err)
+		}
+		block.AdditionalData.ExtraData[batch.BatchPoolAddtionalDataKey] = batchIdBytes
+		bb.log.InfoDynamic(func() string {
+			return fmt.Sprintf("[%v] proposer add batchIds:%v into addition data", block.Header.BlockHeight,
+				func() []string {
+					var batch0 []string
+					for i := range batchIds {
+						batch0 = append(batch0, hex.EncodeToString([]byte(batchIds[i])))
+					}
+					return batch0
+				}())
+		})
+	}
+
+	// cache proposed block
+	bb.log.Debugf("set proposed block(%d,%x)", block.Header.BlockHeight, block.Header.BlockHash)
+	if err = bb.proposalCache.SetProposedBlock(block, txRWSetMap, contractEventMap, true); err != nil {
+		return block, timeLasts, err
+	}
+	bb.proposalCache.SetProposedAt(block.Header.BlockHeight)
+
+	return block, timeLasts, nil
+}
+
 func (bb *BlockBuilder) findLastBlockFromCache(proposingHeight uint64, preHash []byte,
 	currentHeight uint64) *commonPb.Block {
 	var lastBlock *commonPb.Block
@@ -377,13 +501,14 @@ func FinalizeBlock(
 	return nil
 }
 
+// xqh add
 func FinalizeBlockWithChameleonHash(
 	block *commonPb.Block,
 	txRWSetMap map[string]*commonPb.TxRWSet,
 	aclFailTxs []*commonPb.Transaction,
 	hashType string,
 	logger protocol.Logger) error {
-
+	//var addition = block.AdditionalData.
 	if aclFailTxs != nil && len(aclFailTxs) > 0 { //nolint: gosimple
 		// append acl check failed txs to the end of block.Txs
 		block.Txs = append(block.Txs, aclFailTxs...)

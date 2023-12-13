@@ -8,11 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-
 	commonPb "chainmaker.org/chainmaker/pb-go/v2/common"
 	"chainmaker.org/chainmaker/pb-go/v2/syscontract"
+	"encoding/json"
+	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"

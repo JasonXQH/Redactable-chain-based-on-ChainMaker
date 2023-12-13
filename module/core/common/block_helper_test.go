@@ -20,8 +20,8 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
+// import (
 //
-//import (
 //	"errors"
 //	"fmt"
 //	"reflect"
@@ -47,122 +47,122 @@ import (
 //	"github.com/golang/protobuf/proto"
 //	"github.com/prometheus/client_golang/prometheus"
 //	"github.com/stretchr/testify/require"
-//)
 //
-////  statistic the time consuming of finalizeBlock between sync and async
-//// logLevel: Debug TxNum: 1000000; async:3037 ; sync: 4264
-//// logLevel: Info  TxNum: 1000000; async:224 ; sync: 251
-////func TestFinalizeBlock_Async(t *testing.T) {
-////
-////	log := logger.GetLogger("core")
-////	block := createBlock(10)
-////	txs := make([]*commonpb.Transaction, 0)
-////	txRWSetMap := make(map[string]*commonpb.TxRWSet)
-////	for i := 0; i < 100; i++ {
-////		txId := "0x123456789" + fmt.Sprint(i)
-////		tx := createNewTestTx(txId)
-////		txs = append(txs, tx)
-////		txRWSetMap[txId] = &commonpb.TxRWSet{
-////			TxId:    txId,
-////			TxReads: nil,
-////			TxWrites: []*commonpb.TxWrite{{
-////				Key:          []byte(fmt.Sprintf("key%d", i)),
-////				Value:        []byte(fmt.Sprintf("value[%d]", i)),
-////				ContractName: "TestContract",
-////			}},
-////		}
-////	}
-////	block.Txs = txs
-////	var err error
-////
-////	asyncTimeStart := CurrentTimeMillisSeconds()
-////	err = FinalizeBlockSequence(block, txRWSetMap, nil, "SM3", log)
-////	t.Logf("sync mode cost:[%d]", CurrentTimeMillisSeconds()-asyncTimeStart)
-////	t.Logf("%x,%x,%x", block.Header.RwSetRoot, block.Header.TxRoot, block.Header.DagHash)
-////	rwSetRoot := block.Header.RwSetRoot
-////	//blockHash := block.Header.BlockHash
-////	dagHash := block.Header.DagHash
-////	txRoot := block.Header.TxRoot
-////	asyncTimeStart = CurrentTimeMillisSeconds()
-////	block.Header.RwSetRoot = nil
-////	block.Header.BlockHash = nil
-////	block.Header.DagHash = nil
-////	block.Header.TxRoot = nil
-////	err = FinalizeBlock(block, txRWSetMap, nil, "SM3", log)
-////	asyncTimeEnd := CurrentTimeMillisSeconds()
-////	require.Equal(t, nil, err)
-////	t.Logf("concurrent mode cost:[%d]", asyncTimeEnd-asyncTimeStart)
-////	assert.EqualValues(t, rwSetRoot, block.Header.RwSetRoot, "RwSetRoot")
-////	//assert.EqualValues(t, blockHash, block.Header.BlockHash, "BlockHash")
-////	assert.EqualValues(t, dagHash, block.Header.DagHash, "DagHash")
-////	assert.EqualValues(t, txRoot, block.Header.TxRoot, "TxRoot")
-////
-////	////
-////	//syncTimeStart := CurrentTimeMillisSeconds()
-////	//err = FinalizeBlock(block, txRWSetMap, nil, "SHA256", log)
-////	//syncTimeEnd := CurrentTimeMillisSeconds()
-////	//require.Equal(t, nil, err)
-////	//t.Log(fmt.Sprintf("sync mode cost:[%d]", syncTimeEnd-syncTimeStart))
-////	////
-////	//require.Equal(t, rwSetRoot, block.Header.RwSetRoot)
-////	//require.Equal(t, blockHash, block.Header.BlockHash)
-////	//require.Equal(t, dagHash, block.Header.DagHash)
-////	//
-////	//log.Infof(fmt.Sprintf("async mode cost:[%d], sync mode cost:[%d]", asyncTimeEnd-asyncTimeStart, syncTimeEnd-syncTimeStart))
-////
-////}
+// )
 //
-//func TestBlockBuilder_InitNewBlock(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
+// //  statistic the time consuming of finalizeBlock between sync and async
+// // logLevel: Debug TxNum: 1000000; async:3037 ; sync: 4264
+// // logLevel: Info  TxNum: 1000000; async:224 ; sync: 251
+// //func TestFinalizeBlock_Async(t *testing.T) {
+// //
+// //	log := logger.GetLogger("core")
+// //	block := createBlock(10)
+// //	txs := make([]*commonpb.Transaction, 0)
+// //	txRWSetMap := make(map[string]*commonpb.TxRWSet)
+// //	for i := 0; i < 100; i++ {
+// //		txId := "0x123456789" + fmt.Sprint(i)
+// //		tx := createNewTestTx(txId)
+// //		txs = append(txs, tx)
+// //		txRWSetMap[txId] = &commonpb.TxRWSet{
+// //			TxId:    txId,
+// //			TxReads: nil,
+// //			TxWrites: []*commonpb.TxWrite{{
+// //				Key:          []byte(fmt.Sprintf("key%d", i)),
+// //				Value:        []byte(fmt.Sprintf("value[%d]", i)),
+// //				ContractName: "TestContract",
+// //			}},
+// //		}
+// //	}
+// //	block.Txs = txs
+// //	var err error
+// //
+// //	asyncTimeStart := CurrentTimeMillisSeconds()
+// //	err = FinalizeBlockSequence(block, txRWSetMap, nil, "SM3", log)
+// //	t.Logf("sync mode cost:[%d]", CurrentTimeMillisSeconds()-asyncTimeStart)
+// //	t.Logf("%x,%x,%x", block.Header.RwSetRoot, block.Header.TxRoot, block.Header.DagHash)
+// //	rwSetRoot := block.Header.RwSetRoot
+// //	//blockHash := block.Header.BlockHash
+// //	dagHash := block.Header.DagHash
+// //	txRoot := block.Header.TxRoot
+// //	asyncTimeStart = CurrentTimeMillisSeconds()
+// //	block.Header.RwSetRoot = nil
+// //	block.Header.BlockHash = nil
+// //	block.Header.DagHash = nil
+// //	block.Header.TxRoot = nil
+// //	err = FinalizeBlock(block, txRWSetMap, nil, "SM3", log)
+// //	asyncTimeEnd := CurrentTimeMillisSeconds()
+// //	require.Equal(t, nil, err)
+// //	t.Logf("concurrent mode cost:[%d]", asyncTimeEnd-asyncTimeStart)
+// //	assert.EqualValues(t, rwSetRoot, block.Header.RwSetRoot, "RwSetRoot")
+// //	//assert.EqualValues(t, blockHash, block.Header.BlockHash, "BlockHash")
+// //	assert.EqualValues(t, dagHash, block.Header.DagHash, "DagHash")
+// //	assert.EqualValues(t, txRoot, block.Header.TxRoot, "TxRoot")
+// //
+// //	////
+// //	//syncTimeStart := CurrentTimeMillisSeconds()
+// //	//err = FinalizeBlock(block, txRWSetMap, nil, "SHA256", log)
+// //	//syncTimeEnd := CurrentTimeMillisSeconds()
+// //	//require.Equal(t, nil, err)
+// //	//t.Log(fmt.Sprintf("sync mode cost:[%d]", syncTimeEnd-syncTimeStart))
+// //	////
+// //	//require.Equal(t, rwSetRoot, block.Header.RwSetRoot)
+// //	//require.Equal(t, blockHash, block.Header.BlockHash)
+// //	//require.Equal(t, dagHash, block.Header.DagHash)
+// //	//
+// //	//log.Infof(fmt.Sprintf("async mode cost:[%d], sync mode cost:[%d]", asyncTimeEnd-asyncTimeStart, syncTimeEnd-syncTimeStart))
+// //
+// //}
 //
-//	lastBlock := createBlock(9)
+//	func TestBlockBuilder_InitNewBlock(t *testing.T) {
+//		ctrl := gomock.NewController(t)
+//		defer ctrl.Finish()
 //
-//	ledgerCache := mock.NewMockLedgerCache(ctrl)
-//	ledgerCache.EXPECT().CurrentHeight().Return(uint64(9), nil).AnyTimes()
-//	ledgerCache.EXPECT().GetLastCommittedBlock().Return(lastBlock).AnyTimes()
+//		lastBlock := createBlock(9)
 //
-//	identity := mock.NewMockSigningMember(ctrl)
-//	identity.EXPECT().GetMember().Return(nil, nil).AnyTimes()
+//		ledgerCache := mock.NewMockLedgerCache(ctrl)
+//		ledgerCache.EXPECT().CurrentHeight().Return(uint64(9), nil).AnyTimes()
+//		ledgerCache.EXPECT().GetLastCommittedBlock().Return(lastBlock).AnyTimes()
 //
-//	snapshotManager := mock.NewMockSnapshotManager(ctrl)
-//	//var snapshot *protocol.Snapshot
+//		identity := mock.NewMockSigningMember(ctrl)
+//		identity.EXPECT().GetMember().Return(nil, nil).AnyTimes()
 //
-//	//storeHelper := mock.NewMockStoreHelper(ctrl)
-//	snapshot := mock.NewMockSnapshot(ctrl)
-//	snapshot.EXPECT().GetBlockchainStore().AnyTimes()
-//	snapshotManager.EXPECT().NewSnapshot(lastBlock, gomock.Any()).Return(snapshot).AnyTimes()
-//	//storeHelper.EXPECT().BeginDbTransaction(gomock.Any(), gomock.Any())
+//		snapshotManager := mock.NewMockSnapshotManager(ctrl)
+//		//var snapshot *protocol.Snapshot
 //
-//	tx1 := createNewTestTx("0x987654321")
-//	txBatch := []*commonpb.Transaction{tx1}
+//		//storeHelper := mock.NewMockStoreHelper(ctrl)
+//		snapshot := mock.NewMockSnapshot(ctrl)
+//		snapshot.EXPECT().GetBlockchainStore().AnyTimes()
+//		snapshotManager.EXPECT().NewSnapshot(lastBlock, gomock.Any()).Return(snapshot).AnyTimes()
+//		//storeHelper.EXPECT().BeginDbTransaction(gomock.Any(), gomock.Any())
 //
-//	txScheduler := mock.NewMockTxScheduler(ctrl)
-//	txScheduler.EXPECT().Schedule(gomock.Any(), txBatch, snapshot).AnyTimes()
+//		tx1 := createNewTestTx("0x987654321")
+//		txBatch := []*commonpb.Transaction{tx1}
 //
-//	chainConf := mock.NewMockChainConf(ctrl)
-//	cf := config.ChainConfig{Consensus: &config.ConsensusConfig{Type: 0}}
-//	chainConf.EXPECT().ChainConfig().Return(&cf).AnyTimes()
+//		txScheduler := mock.NewMockTxScheduler(ctrl)
+//		txScheduler.EXPECT().Schedule(gomock.Any(), txBatch, snapshot).AnyTimes()
 //
-//	//conf := &BlockBuilderConf{
-//	//	ChainId:         "chain1",
-//	//	TxPool:          nil,
-//	//	TxScheduler:     txScheduler,
-//	//	SnapshotManager: snapshotManager,
-//	//	Identity:        identity,
-//	//	LedgerCache:     ledgerCache,
-//	//	ProposalCache:   nil,
-//	//	ChainConf:       chainConf,
-//	//	Log:             nil,
-//	//	StoreHelper:     storeHelper,
-//	//}
+//		chainConf := mock.NewMockChainConf(ctrl)
+//		cf := config.ChainConfig{Consensus: &config.ConsensusConfig{Type: 0}}
+//		chainConf.EXPECT().ChainConfig().Return(&cf).AnyTimes()
 //
-//	block, err := initNewBlock(lastBlock, identity, "chain1", chainConf, false)
-//	require.Nil(t, err)
-//	require.NotNil(t, block)
+//		//conf := &BlockBuilderConf{
+//		//	ChainId:         "chain1",
+//		//	TxPool:          nil,
+//		//	TxScheduler:     txScheduler,
+//		//	SnapshotManager: snapshotManager,
+//		//	Identity:        identity,
+//		//	LedgerCache:     ledgerCache,
+//		//	ProposalCache:   nil,
+//		//	ChainConf:       chainConf,
+//		//	Log:             nil,
+//		//	StoreHelper:     storeHelper,
+//		//}
 //
-//}
+//		block, err := initNewBlock(lastBlock, identity, "chain1", chainConf, false)
+//		require.Nil(t, err)
+//		require.NotNil(t, block)
 //
+// }
 func createBlock(height uint64) *commonpb.Block {
 	var hash = []byte("0123456789")
 	var version = uint32(1)
@@ -2219,6 +2219,55 @@ func TestFinalizeBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := FinalizeBlock(tt.args.block, tt.args.txRWSetMap, tt.args.aclFailTxs, tt.args.hashType, tt.args.logger); (err != nil) != tt.wantErr {
+				t.Errorf("FinalizeBlock() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFinalizeBlockWithChameleonHash(t *testing.T) {
+	type args struct {
+		block      *commonpb.Block
+		txRWSetMap map[string]*commonpb.TxRWSet
+		aclFailTxs []*commonpb.Transaction
+		hashType   string
+		logger     protocol.Logger
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "test0",
+			args: args{
+				block:      createBlock(1),
+				txRWSetMap: map[string]*commonpb.TxRWSet{},
+				aclFailTxs: nil,
+				hashType:   "SHA256",
+				logger:     logger.GetLogger("core"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "test1",
+			args: args{
+				block: func() *commonpb.Block {
+					block := createBlock(1)
+					block.Dag = nil
+					return block
+				}(),
+				txRWSetMap: map[string]*commonpb.TxRWSet{},
+				aclFailTxs: nil,
+				hashType:   "SHA256",
+				logger:     logger.GetLogger("core"),
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := FinalizeBlockWithChameleonHash(tt.args.block, tt.args.txRWSetMap, tt.args.aclFailTxs, tt.args.hashType, tt.args.logger); (err != nil) != tt.wantErr {
 				t.Errorf("FinalizeBlock() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
