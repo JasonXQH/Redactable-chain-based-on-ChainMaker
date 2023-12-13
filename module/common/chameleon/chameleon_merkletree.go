@@ -9,20 +9,23 @@ import (
 	"fmt"
 )
 
+//TODO 思考清楚，可以问问
 func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]byte, error) {
 	salt := mysql.Persistence(block)
-	merkleTree, err := hash.BuildMerkleTree(hashType, txHases)
-	if err != nil {
-		return nil, err
-	}
 	if block.Header.TxCount == 0 {
 		if utils.CanProposeEmptyBlock(1) {
 			// for consensus that allows empty block, skip txs verify
 			return nil, nil
 		}
-		// for consensus that NOT allows empty block, return error
-		return nil, fmt.Errorf("tx must not empty")
+		//TODO 思考如果是空区块该如何？如果是创世区块？那么需要创建一个随机salt，并更具随机salt创建一个区块哈希
+		return salt, fmt.Errorf("tx must not empty")
 	}
+	//检查通过以后，创建merkleTree
+	merkleTree, err := hash.BuildMerkleTree(hashType, txHases)
+	if err != nil {
+		return nil, err
+	}
+
 	merkleTreeRoot, _ := ConvertToHashType(merkleTree[len(merkleTree)-1])
 	chameleonMerkleRoot := Hash(merkleTreeRoot, salt)
 	fmt.Println("chameleonMerkleRoot: ", chameleonMerkleRoot.String())
@@ -39,6 +42,7 @@ func ForgeMerkleRootSalt(oldTreeHash common.Hash, hashType string, txHases [][]b
 	if err2 != nil {
 		return nil, err2
 	}
+	//TODO 需要做是否没有交易的判断，如果没有，该...
 	var merkleTree, err = hash.BuildMerkleTree(hashType, txHases)
 
 	if err != nil {
