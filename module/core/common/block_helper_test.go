@@ -2241,7 +2241,7 @@ func TestFinalizeBlockWithChameleonHash(t *testing.T) {
 		{
 			name: "test0",
 			args: args{
-				block:      createBlock(1),
+				block:      createBlock(2),
 				txRWSetMap: map[string]*commonpb.TxRWSet{},
 				aclFailTxs: nil,
 				hashType:   "SHA256",
@@ -2254,7 +2254,20 @@ func TestFinalizeBlockWithChameleonHash(t *testing.T) {
 			args: args{
 				block: func() *commonpb.Block {
 					block := createBlock(1)
-					block.Dag = nil
+					block.Txs = []*commonpb.Transaction{
+						createNewTestTx("11"),
+						createNewTestTx("22"),
+						createNewTestTx("33"),
+					}
+					neighbor1 := &commonpb.DAG_Neighbor{Neighbors: []uint32{2, 3}}
+					neighbor2 := &commonpb.DAG_Neighbor{Neighbors: []uint32{4}}
+					neighbor3 := &commonpb.DAG_Neighbor{Neighbors: []uint32{}}
+					neighbor4 := &commonpb.DAG_Neighbor{Neighbors: []uint32{}}
+					dag := []*commonpb.DAG_Neighbor{neighbor1, neighbor2, neighbor3, neighbor4}
+					block.Dag = &commonpb.DAG{
+						Vertexes: dag,
+					}
+
 					return block
 				}(),
 				txRWSetMap: map[string]*commonpb.TxRWSet{},
@@ -2268,7 +2281,7 @@ func TestFinalizeBlockWithChameleonHash(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := FinalizeBlockWithChameleonHash(tt.args.block, tt.args.txRWSetMap, tt.args.aclFailTxs, tt.args.hashType, tt.args.logger); (err != nil) != tt.wantErr {
-				t.Errorf("FinalizeBlock() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("FinalizeBlockWithChameleonHash() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	commonPb "chainmaker.org/chainmaker/pb-go/v2/common"
 	"crypto/rand"
 	"database/sql"
 	"fmt"
@@ -31,7 +32,7 @@ func generateRandomSalt() ([]byte, error) {
 	return salt, nil
 }
 
-func persistence(blockHeight uint, blockHash []byte, isModified bool) []byte {
+func Persistence(block *commonPb.Block) []byte {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -43,15 +44,41 @@ func persistence(blockHeight uint, blockHash []byte, isModified bool) []byte {
 	if err := db.Ping(); err != nil {
 		panic(err)
 	}
-
-	_, err = db.Exec("INSERT INTO block_info (block_height, block_hash, random_salt,is_modified) VALUES (?, ?,?, ?)", blockHeight, blockHash, salt, isModified)
+	_, err = db.Exec("INSERT INTO block_info (block_height, block_hash, random_salt,is_modified) VALUES (?, ?,?, ?)", block.Header.BlockHeight, block.Header.GetBlockHash(), salt, false)
 	if err != nil {
 		panic(err)
 	}
 	// 其他数据库操作...
 	return salt
 }
-func getBlockInfoFromMysql(blockHeight uint) (*BlockInfo, error) {
+
+func UpdateSalt(info *BlockInfo) error {
+	// 连接到数据库
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// 更新数据库中的salt
+	query := "UPDATE block_info SET random_salt = ? WHERE block_height = ?"
+	result, err := db.Exec(query, info.RandomSalt, info.BlockHeight)
+	if err != nil {
+		return fmt.Errorf("failed to update salt in database: %v", err)
+	}
+
+	// 检查是否真的更新了数据库中的条目
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %v", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no rows updated, block height %d may not exist", info.BlockHeight)
+	}
+	return nil
+}
+func GetBlockInfoFromMysql(blockHeight uint) (*BlockInfo, error) {
 	// 连接数据库
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
 	db, err := sql.Open("mysql", dsn)

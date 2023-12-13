@@ -1,18 +1,60 @@
 package mysql
 
 import (
+	"chainmaker.org/chainmaker/pb-go/v2/accesscontrol"
+	commonpb "chainmaker.org/chainmaker/pb-go/v2/common"
 	"fmt"
 	"testing"
 )
 
+func createBlock(height uint64) *commonpb.Block {
+	var hash = []byte("0123456789")
+	var version = uint32(1)
+	var block = &commonpb.Block{
+		Header: &commonpb.BlockHeader{
+			ChainId:        "Chain1",
+			BlockHeight:    height,
+			PreBlockHash:   hash,
+			BlockHash:      hash,
+			PreConfHeight:  0,
+			BlockVersion:   version,
+			DagHash:        hash,
+			RwSetRoot:      hash,
+			TxRoot:         hash,
+			BlockTimestamp: 0,
+			Proposer:       &accesscontrol.Member{MemberInfo: hash},
+			ConsensusArgs:  nil,
+			TxCount:        1,
+			Signature:      []byte(""),
+		},
+		Dag: &commonpb.DAG{
+			Vertexes: nil,
+		},
+		Txs: nil,
+	}
+
+	return block
+}
+
+var info = &BlockInfo{
+	RandomSalt:  []byte{186, 46, 13, 213},
+	BlockHeight: 3,
+	IsModified:  true,
+}
+
 func TestPersistence(t *testing.T) {
-	salt := persistence(3, []byte{186, 46, 13, 213, 161, 141, 229, 250, 87, 127, 53, 76, 195, 132, 126, 2, 19, 113, 26, 154, 195, 58, 12, 201, 232, 168, 191, 40, 122, 234, 217, 208}, true)
+	var testBlock = createBlock(3)
+	salt := Persistence(testBlock)
 	fmt.Println(salt)
 }
-func TestGetBlockInfoFromMysql(t *testing.T) {
 
-	_, err := getBlockInfoFromMysql(2)
+func TestGetBlockInfoFromMysql(t *testing.T) {
+	_, err := GetBlockInfoFromMysql(3)
 	if err != nil {
 		return
 	}
+}
+
+func TestUpdateSalt(t *testing.T) {
+	UpdateSalt(info)
 }

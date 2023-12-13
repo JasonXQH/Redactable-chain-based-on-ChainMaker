@@ -759,7 +759,6 @@ func CheckVacuumBlock(block *commonPb.Block, consensusType consensus.ConsensusTy
 			// for consensus that allows empty block, skip txs verify
 			return nil
 		}
-
 		// for consensus that NOT allows empty block, return error
 		return fmt.Errorf("tx must not empty")
 	}
