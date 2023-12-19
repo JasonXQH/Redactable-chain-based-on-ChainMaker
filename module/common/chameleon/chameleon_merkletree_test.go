@@ -20,6 +20,7 @@ func TestGetMerkleRoot(t *testing.T) {
 	block := &commonPb.Block{
 		Header: &commonPb.BlockHeader{
 			BlockHeight: 1, // 示例区块高度
+			TxCount:     uint32(len(txHashes)),
 		},
 	}
 	//var blockHeightToSaltMap map[int][]byte

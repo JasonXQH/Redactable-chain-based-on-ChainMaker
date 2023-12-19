@@ -162,7 +162,8 @@ func (bb *BlockBuilder) GenerateNewBlock(
 	}
 
 	finalizeStartTick := utils.CurrentTimeMillisSeconds()
-	err = FinalizeBlock(
+	//test xqh ，仅供test
+	err = FinalizeBlockWithChameleonHash(
 		block,
 		txRWSetMap,
 		aclFailTxs,
@@ -286,7 +287,7 @@ func (bb *BlockBuilder) GenerateNewBlockWithChameleonHash(
 	}
 
 	finalizeStartTick := utils.CurrentTimeMillisSeconds()
-	err = FinalizeBlock(
+	err = FinalizeBlockWithChameleonHash(
 		block,
 		txRWSetMap,
 		aclFailTxs,
@@ -684,8 +685,10 @@ func IsTxDuplicate(txs []*commonPb.Transaction) (duplicate bool, duplicateTxs []
 }
 
 // IsMerkleRootValid to check if block merkle root equals with simulated merkle root
+// xqh 修改
 func IsMerkleRootValid(block *commonPb.Block, txHashes [][]byte, hashType string) error {
-	txRoot, err := hash.GetMerkleRoot(hashType, txHashes)
+	//txRoot, err := hash.GetMerkleRoot(hashType, txHashes)
+	txRoot, err := chameleon.GetMerkleRoot(hashType, txHashes, block)
 	if err != nil || !bytes.Equal(txRoot, block.Header.TxRoot) {
 		return fmt.Errorf("GetMerkleRoot(%s,%v) get %x ,txroot expect %x, got %x, err: %s",
 			hashType, txHashes, txRoot, block.Header.TxRoot, txRoot, err)
@@ -736,6 +739,7 @@ func VerifyHeight(height uint64, ledgerCache protocol.LedgerCache) error {
 }
 
 func CheckBlockDigests(block *commonPb.Block, txHashes [][]byte, hashType string, log protocol.Logger) error {
+
 	if err := IsMerkleRootValid(block, txHashes, hashType); err != nil {
 		log.Error(err)
 		return err

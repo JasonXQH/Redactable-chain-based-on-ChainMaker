@@ -44,6 +44,18 @@ func constructQueryPayload(chainId, contractName, method string, pairs []*common
 
 	return payload, nil
 }
+func ConstructQueryPayload(chainId, contractName, method string, pairs []*commonPb.KeyValuePair) (*commonPb.Payload, error) {
+	payload := &commonPb.Payload{
+		ContractName: contractName,
+		Method:       method,
+		Parameters:   pairs,
+		TxId:         "", //Query不需要TxId
+		TxType:       commonPb.TxType_QUERY_CONTRACT,
+		ChainId:      chainId,
+	}
+
+	return payload, nil
+}
 func constructInvokePayload(chainId, contractName, method string, pairs []*commonPb.KeyValuePair) (*commonPb.Payload, error) {
 	payload := &commonPb.Payload{
 		ContractName:   contractName,

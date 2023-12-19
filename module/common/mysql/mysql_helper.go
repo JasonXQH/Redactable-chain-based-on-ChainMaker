@@ -1,8 +1,7 @@
 package mysql
 
 import (
-	commonPb "chainmaker.org/chainmaker/pb-go/v2/common"
-	"crypto/rand"
+	"chainmaker.org/chainmaker-go/module/common"
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
@@ -23,33 +22,22 @@ const (
 	mysqlDatabase = "chainmaker" // MySQL数据库名
 )
 
-func generateRandomSalt() ([]byte, error) {
-	salt := make([]byte, 32)
-	_, err := rand.Read(salt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate random salt: %v", err)
-	}
-	return salt, nil
-}
-
-func Persistence(block *commonPb.Block) []byte {
+func Persistence(block_height uint64, merkleTreeRoot common.Hash, salt []byte) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
-	salt, err := generateRandomSalt()
 	// 确保数据库连接成功
 	if err := db.Ping(); err != nil {
 		panic(err)
 	}
-	_, err = db.Exec("INSERT INTO block_info (block_height, block_hash, random_salt,is_modified) VALUES (?, ?,?, ?)", block.Header.BlockHeight, block.Header.GetBlockHash(), salt, false)
+	_, err = db.Exec("INSERT INTO block_info (block_height, merkletree_root, random_salt,is_modified) VALUES (?, ?,?, ?)", block_height, merkleTreeRoot, salt, false)
 	if err != nil {
 		panic(err)
 	}
 	// 其他数据库操作...
-	return salt
 }
 
 func UpdateSalt(info *BlockInfo) error {
@@ -78,6 +66,31 @@ func UpdateSalt(info *BlockInfo) error {
 	}
 	return nil
 }
+
+func GetSalt(blockheight uint64) ([]byte, error) {
+	// 连接到数据库
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// 更新数据库中的salt
+	query := "SELECT random_salt FROM block_info WHERE block_height = ?"
+	var salt []byte
+	err = db.QueryRow(query, blockheight).Scan(&salt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 没有找到对应的条目
+			return nil, nil
+		}
+		// 数据库查询出错
+		return nil, fmt.Errorf("failed to query randomsalt from database: %v", err)
+	}
+	return salt, nil
+}
+
 func GetBlockInfoFromMysql(blockHeight uint) (*BlockInfo, error) {
 	// 连接数据库
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)

@@ -6,19 +6,41 @@ import (
 	"chainmaker.org/chainmaker/common/v2/crypto/hash"
 	commonPb "chainmaker.org/chainmaker/pb-go/v2/common"
 	"chainmaker.org/chainmaker/utils/v2"
+	"crypto/rand"
 	"fmt"
 )
 
-//TODO 思考清楚，可以问问
+func generateRandomSalt() ([]byte, error) {
+	salt := make([]byte, 32)
+	_, err := rand.Read(salt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate random salt: %v", err)
+	}
+	return salt, nil
+}
+
+// TODO 思考清楚，可以问问
 func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]byte, error) {
-	salt := mysql.Persistence(block)
+	var saltIsNew = false
 	if block.Header.TxCount == 0 {
-		if utils.CanProposeEmptyBlock(1) {
-			// for consensus that allows empty block, skip txs verify
+		if utils.CanProposeEmptyBlock(3) {
 			return nil, nil
 		}
-		//TODO 思考如果是空区块该如何？如果是创世区块？那么需要创建一个随机salt，并更具随机salt创建一个区块哈希
-		return salt, fmt.Errorf("tx must not empty")
+		return nil, fmt.Errorf("tx must not empty")
+	}
+
+	// 从数据库查询salt
+	salt, err := mysql.GetSalt(block.Header.BlockHeight)
+	if err != nil || salt == nil {
+		// 如果没有找到，生成新的salt
+		fmt.Println("如果没有找到，生成新的salt")
+		salt, err = generateRandomSalt()
+		saltIsNew = true
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("找到，旧的salt: ", salt)
 	}
 	//检查通过以后，创建merkleTree
 	merkleTree, err := hash.BuildMerkleTree(hashType, txHases)
@@ -26,9 +48,16 @@ func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]
 		return nil, err
 	}
 
-	merkleTreeRoot, _ := ConvertToHashType(merkleTree[len(merkleTree)-1])
-	chameleonMerkleRoot := Hash(merkleTreeRoot, salt)
+	merkleTreeRoot := merkleTree[len(merkleTree)-1]
+	merkleTreeRootHash, _ := ConvertToHashType(merkleTreeRoot)
+	chameleonMerkleRoot := Hash(merkleTreeRootHash, salt)
 	fmt.Println("chameleonMerkleRoot: ", chameleonMerkleRoot.String())
+
+	// 只有在生成了新的salt时才调用mysql.Persistence
+	if err == nil && saltIsNew {
+		mysql.Persistence(block.Header.BlockHeight, merkleTreeRootHash, salt)
+	}
+
 	if err != nil {
 		return nil, err
 	}
