@@ -169,6 +169,8 @@ func (bb *BlockBuilder) GenerateNewBlock(
 		aclFailTxs,
 		bb.chainConf.ChainConfig().Crypto.Hash,
 		bb.log)
+	//blochHash, _ := chameleon.ConvertToHashType(block.Header.BlockHash)
+	//bb.log.Infof("xqhadd!!! block(%d) block_Hash(%x)", block.Header.BlockHeight, blochHash)
 	finalizeLasts := utils.CurrentTimeMillisSeconds() - finalizeStartTick
 	if err != nil {
 		return nil, timeLasts, fmt.Errorf("finalizeBlock block(%d,%s) error %s",
@@ -215,9 +217,8 @@ func (bb *BlockBuilder) GenerateNewBlock(
 				}())
 		})
 	}
+	//blochHash, _ = chameleon.ConvertToHashType(block.Header.BlockHash)
 
-	// cache proposed block
-	bb.log.Debugf("set proposed block(%d,%x)", block.Header.BlockHeight, block.Header.BlockHash)
 	if err = bb.proposalCache.SetProposedBlock(block, txRWSetMap, contractEventMap, true); err != nil {
 		return block, timeLasts, err
 	}
@@ -554,7 +555,8 @@ func FinalizeBlockWithChameleonHash(
 	go func() {
 		defer wg.Done()
 		var err error
-		block.Header.TxRoot, err = chameleon.GetMerkleRoot(hashType, txHashes, block)
+		block.Header.TxRoot, err = hash.GetMerkleRoot(hashType, txHashes)
+		block.Header.BlockHash, _ = chameleon.GetBlockHash(block)
 		if err != nil {
 			logger.Warnf("get tx merkle root error %s", err)
 			errsC <- err
@@ -687,8 +689,8 @@ func IsTxDuplicate(txs []*commonPb.Transaction) (duplicate bool, duplicateTxs []
 // IsMerkleRootValid to check if block merkle root equals with simulated merkle root
 // xqh 修改
 func IsMerkleRootValid(block *commonPb.Block, txHashes [][]byte, hashType string) error {
-	//txRoot, err := hash.GetMerkleRoot(hashType, txHashes)
-	txRoot, err := chameleon.GetMerkleRoot(hashType, txHashes, block)
+	txRoot, err := hash.GetMerkleRoot(hashType, txHashes)
+	//txRoot, err := chameleon.GetMerkleRoot(hashType, txHashes, block)
 	if err != nil || !bytes.Equal(txRoot, block.Header.TxRoot) {
 		return fmt.Errorf("GetMerkleRoot(%s,%v) get %x ,txroot expect %x, got %x, err: %s",
 			hashType, txHashes, txRoot, block.Header.TxRoot, txRoot, err)
@@ -1239,6 +1241,10 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 	}
 	// put consensus qc into block
 	lastProposed.AdditionalData = block.AdditionalData
+	//TODO xqh 修改
+	//lastProposed.Header.BlockHash, _ = chameleon.GetBlockHash(lastProposed)
+	//_, _ = chameleon.ConvertToHashType(lastProposed.Hash())
+	//chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
 	// shallow copy, create a new block to prevent panic during storage in marshal
 	//提交区块
 	commitBlock := CopyBlock(lastProposed)

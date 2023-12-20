@@ -20,7 +20,7 @@ func generateRandomSalt() ([]byte, error) {
 }
 
 // TODO 思考清楚，可以问问
-func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]byte, error) {
+func GetMerkleRoot(hashType string, txHashes [][]byte, block *commonPb.Block) ([]byte, error) {
 	var saltIsNew = false
 	if block.Header.TxCount == 0 {
 		if utils.CanProposeEmptyBlock(3) {
@@ -28,7 +28,6 @@ func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]
 		}
 		return nil, fmt.Errorf("tx must not empty")
 	}
-
 	// 从数据库查询salt
 	salt, err := mysql.GetSalt(block.Header.BlockHeight)
 	if err != nil || salt == nil {
@@ -43,7 +42,7 @@ func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]
 		fmt.Println("找到，旧的salt: ", salt)
 	}
 	//检查通过以后，创建merkleTree
-	merkleTree, err := hash.BuildMerkleTree(hashType, txHases)
+	merkleTree, err := hash.BuildMerkleTree(hashType, txHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -51,44 +50,65 @@ func GetMerkleRoot(hashType string, txHases [][]byte, block *commonPb.Block) ([]
 	merkleTreeRoot := merkleTree[len(merkleTree)-1]
 	merkleTreeRootHash, _ := ConvertToHashType(merkleTreeRoot)
 	chameleonMerkleRoot := Hash(merkleTreeRootHash, salt)
-	fmt.Println("chameleonMerkleRoot: ", chameleonMerkleRoot.String())
-
+	//fmt.Println("chameleonMerkleRoot: ", chameleonMerkleRoot.String())
 	// 只有在生成了新的salt时才调用mysql.Persistence
 	if err == nil && saltIsNew {
-		mysql.Persistence(block.Header.BlockHeight, merkleTreeRootHash, salt)
+		//mysql.Persistence(block.Header.BlockHeight, merkleTreeRootHash, salt)
 	}
-
 	if err != nil {
 		return nil, err
 	}
 	return ConvertToBytesType(chameleonMerkleRoot), nil
 }
-
-func ForgeMerkleRootSalt(oldTreeHash common.Hash, hashType string, txHases [][]byte, block *commonPb.Block) ([]byte, error) {
+func GetBlockHash(block *commonPb.Block) ([]byte, error) {
+	var saltFlag = false
+	salt, err := mysql.GetSalt(block.Header.BlockHeight)
+	merkleTreeRoot := block.Header.TxRoot
+	merkleTreeRootHash, _ := ConvertToHashType(merkleTreeRoot)
+	if salt == nil {
+		// 如果没有找到，生成新的salt
+		fmt.Println("如果没有找到，生成新的salt")
+		salt, err = generateRandomSalt()
+		saltFlag = true
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("找到，旧的salt: ", salt)
+	}
+	blockHeaderHash := Hash(merkleTreeRootHash, salt)
+	if block.Header.TxCount == 0 {
+		if utils.CanProposeEmptyBlock(3) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("tx must not empty")
+	}
+	if err == nil && saltFlag {
+		mysql.Persistence(block.Header.BlockHeight, merkleTreeRootHash, salt, blockHeaderHash)
+	}
+	return ConvertToBytesType(blockHeaderHash), nil
+}
+func ForgeMerkleRootSalt(oldTreeHash common.Hash, hashType string, new_merkleTreeRoot []byte, block *commonPb.Block) ([]byte, error) {
 	blockHeight := block.Header.BlockHeight
 	blockInfo, err2 := mysql.GetBlockInfoFromMysql(uint(blockHeight))
-
 	if err2 != nil {
 		return nil, err2
 	}
-	//TODO 需要做是否没有交易的判断，如果没有，该...
-	var merkleTree, err = hash.BuildMerkleTree(hashType, txHases)
-
-	if err != nil {
-		return nil, err
-	}
-	new_merkleTreeRoot, _ := ConvertToHashType(merkleTree[len(merkleTree)-1])
-	new_salt := UForge(oldTreeHash, new_merkleTreeRoot, blockInfo.RandomSalt).Bytes()
-
+	//fmt.Println("new_merkleTreeRoot: ", new_merkleTreeRoot)
+	//oldSaltHash, _ := ConvertToHashType(blockInfo.RandomSalt)
+	//fmt.Println("blockInfo.oldSalt: ", oldSaltHash.String())
+	newTreeRootHash, _ := ConvertToHashType(new_merkleTreeRoot)
+	new_salt := UForge(oldTreeHash, newTreeRootHash, blockInfo.RandomSalt).Bytes()
+	//fmt.Println("new_salt: ", new_salt)
 	//替换旧的salt
-	blockInfo.RandomSalt = new_salt
-	err3 := mysql.UpdateSalt(blockInfo)
-	if err3 != nil {
-		return nil, err3
-	}
-	new_Hash := Hash(new_merkleTreeRoot, new_salt)
-	fmt.Println("newForgeHash: ", new_Hash.String())
-	return ConvertToBytesType(new_Hash), nil
+	//blockInfo.RandomSalt = new_salt
+	//err3 := mysql.UpdateSalt(blockInfo)
+	//if err3 != nil {
+	//	return nil, err3
+	//}
+	//new_Hash := Hash(new_merkleTreeRoot, new_salt)
+	//fmt.Println("newForgeHash: ", new_Hash.String())
+	return new_salt, nil
 }
 func ConvertToHashType(merkleRoot []byte) (common.Hash, error) {
 	var hash common.Hash

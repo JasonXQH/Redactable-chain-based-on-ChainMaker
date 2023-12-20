@@ -67,3 +67,13 @@ func TestGetSalt(t *testing.T) {
 		t.Logf("Random salt for block height %d: %v", blockHeight, salt)
 	}
 }
+
+func TestGetOldMerkleTreeRoot(t *testing.T) {
+	blockHeight := uint64(1) // 设置测试的区块高度
+	merkleTreeRoot, err := GetOldMerkleTreeRoot(blockHeight)
+	if err != nil {
+		t.Errorf("GetSalt() returned an error for block height %d: %v", blockHeight, err)
+	} else {
+		t.Logf("Random salt for block height %d: %v", blockHeight, merkleTreeRoot)
+	}
+}

@@ -362,12 +362,15 @@ func (bp *BlockProposerImpl) proposing(height uint64, preHash []byte) (*consensu
 	elapsed := utils.CurrentTimeMillisSeconds() - startTick
 	bp.log.Infof("proposer success [%d](txs:%d), fetch(times:%v,fetch:%v,filter:%v,fetch from other block:%v,total:%d) "+
 		"time used(begin DB transaction:%v, "+
-		"new snapshot:%v, vm:%v, finalize block:%v,total:%d)", block.Header.BlockHeight, block.Header.TxCount,
+		"new snapshot:%v, vm:%v, finalize block:%v,total:%d),%x", block.Header.BlockHeight, block.Header.TxCount,
 		totalTimes, fetchLasts, filterValidateLasts, fetchFromOtherBlockLasts, fetchTotalLasts,
 		timeLasts[0], timeLasts[1], timeLasts[2], timeLasts[3], elapsed)
+	//blochHash, _ := chameleon.ConvertToHashType(block.Header.BlockHash)
+	//bp.log.Infof("xqhadd!!! block(%d) block_Hash(%x)", block.Header.BlockHeight, blochHash)
 	if localconf.ChainMakerConfig.MonitorConfig.Enabled {
 		bp.metricBlockPackageTime.WithLabelValues(bp.chainId).Observe(float64(elapsed) / 1000)
 	}
+
 	return &consensuspb.ProposalBlock{Block: block, TxsRwSet: txsRwSet, CutBlock: cutBlock}, nil
 }
 
@@ -566,7 +569,7 @@ func (bp *BlockProposerImpl) getDuration() time.Duration {
 // getChainVersion, get chain version from config.
 // If not access from config, use default value.
 // @Deprecated
-//nolint: unused
+// nolint: unused
 func (bp *BlockProposerImpl) getChainVersion() uint32 {
 	if bp.chainConf == nil || bp.chainConf.ChainConfig() == nil {
 		bp.log.Warnf("No chain config found, use default block version:%d", protocol.DefaultBlockVersion)
@@ -616,7 +619,7 @@ func (bp *BlockProposerImpl) setIsSelfProposer(isSelfProposer bool) {
 	}
 }
 
-//isSelfProposer, return if this node is consensus proposer
+// isSelfProposer, return if this node is consensus proposer
 func (bp *BlockProposerImpl) isSelfProposer() bool {
 	bp.proposerMu.RLock()
 	defer bp.proposerMu.RUnlock()

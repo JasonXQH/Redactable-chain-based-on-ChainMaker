@@ -375,6 +375,7 @@ func (bp *BlockProposerImpl) proposing(height uint64, preHash []byte) *commonpb.
 
 	//bp.log.Debugf("finalized block \n%s", utils.FormatBlock(block))
 	elapsed := utils.CurrentTimeMillisSeconds() - startTick
+
 	bp.log.Infof("proposer success [%d](txs:%d),fetch(times:%v,fetch:%v,filter:%v,total:%d), time used("+
 		"begin DB transaction:%v, new snapshot:%v, vm:%v, finalize block:%v,total:%d)",
 		block.Header.BlockHeight, block.Header.TxCount,
@@ -508,7 +509,7 @@ func (bp *BlockProposerImpl) getDuration() time.Duration {
 // getChainVersion, get chain version from config.
 // If not access from config, use default value.
 // @Deprecated
-//nolint: unused
+// nolint: unused
 func (bp *BlockProposerImpl) getChainVersion() []byte {
 	if bp.chainConf == nil || bp.chainConf.ChainConfig() == nil {
 		return []byte(DEFAULTVERSION)
