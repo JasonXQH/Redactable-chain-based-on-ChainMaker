@@ -13,29 +13,18 @@ import (
 )
 
 func ModifyBlockByHeight(height uint64) *commonPb.Block {
-	blockInfo := locate.GetBlockByHeight(height)
-	oldBlock := blockInfo.Block
+	//mylogger := logger.GetLogger("chameleon")
+	//mylogger.Infof("xqh!!!!!!!!!!!")
+	oldBlock := locate.GetBlockByHeight(height).Block
 	oldBlockHash, _ := chameleon.ConvertToHashType(oldBlock.Header.BlockHash)
-	txs := make([]*commonPb.Transaction, 0)
-	txRWSetMap := make(map[string]*commonPb.TxRWSet)
-	for i := 0; i < 100; i++ {
-		txId := "0x123456789" + fmt.Sprint(i)
-		tx := createNewTestTx(txId)
-		txs = append(txs, tx)
-		txRWSetMap[txId] = &commonPb.TxRWSet{
-			TxId:    txId,
-			TxReads: nil,
-			TxWrites: []*commonPb.TxWrite{{
-				Key:          []byte(fmt.Sprintf("key%d", i)),
-				Value:        []byte(fmt.Sprintf("value[%d]", i)),
-				ContractName: "TestContract",
-			}},
-		}
-	}
+
+	txs, txRWSetMap := GetTxsAndRWSetMap()
+
 	oldBlock.Txs = txs
 	// TxRoot/RwSetRoot
 	txCount := len(oldBlock.Txs)
 	oldBlock.Header.TxCount = uint32(txCount)
+
 	errsC := make(chan error, txCount+3) // txCount+3 possible errors
 	txHashes := make([][]byte, txCount)
 	wg := &sync.WaitGroup{}
@@ -66,21 +55,13 @@ func ModifyBlockByHeight(height uint64) *commonPb.Block {
 		return nil
 	}
 	wg.Add(3)
+
 	//calc tx root
 	oldMerkleTreeRoot, err := mysql.GetOldMerkleTreeRoot(height)
-	oldSalt, _ := mysql.GetSalt(height)
-
-	//fmt.Println("oldMerkleTreeRoot: ", oldMerkleTreeRoot, " oldSalt: ", oldSalt)
-	if err != nil {
-		fmt.Println("err: ", err)
-	}
 	oldMerkleTreeRootHash, err := chameleon.ConvertToHashType(oldMerkleTreeRoot)
-	if err != nil {
-		fmt.Println("err: ", err)
-	}
+	oldSalt, _ := mysql.GetSalt(height)
 	oldHash := chameleon.Hash(oldMerkleTreeRootHash, oldSalt)
 	fmt.Println("oldHash: ", oldHash.String())
-
 	newMerkleTree, err := hash.BuildMerkleTree("SHA256", txHashes)
 	if err != nil {
 		fmt.Println("err: ", err)
@@ -90,7 +71,6 @@ func ModifyBlockByHeight(height uint64) *commonPb.Block {
 	if err != nil {
 		fmt.Println("err: ", err)
 	}
-	//fmt.Println("newMerkleTreeRoot: ", newMerkleTreeRootHash.String())
 	newSalt, err := chameleon.ForgeMerkleRootSalt(oldMerkleTreeRootHash, "SHA256", newMerkleTreeRoot, oldBlock)
 	if err != nil {
 		fmt.Println("err: ", err)
@@ -98,12 +78,29 @@ func ModifyBlockByHeight(height uint64) *commonPb.Block {
 	newHash := chameleon.Hash(newMerkleTreeRootHash, newSalt)
 	newHashByte := chameleon.ConvertToBytesType(newHash)
 	oldBlock.Header.BlockHash = newHashByte
-	//fmt.Println("oldHash: ", newSalt)
 	fmt.Println("newHash: ", newHash.String(), "oldBlockHash: ", oldBlockHash.String())
 	newBlock := common.CopyBlock(oldBlock)
-	oldTxRootHash, _ := chameleon.ConvertToHashType(oldBlock.Header.TxRoot)
-	fmt.Println("oldTxRoot: ", oldTxRootHash.String())
 	return newBlock
+}
+
+func GetTxsAndRWSetMap() ([]*commonPb.Transaction, map[string]*commonPb.TxRWSet) {
+	txs := make([]*commonPb.Transaction, 0)
+	txRWSetMap := make(map[string]*commonPb.TxRWSet)
+	for i := 0; i < 100; i++ {
+		txId := "0x123456789" + fmt.Sprint(i)
+		tx := createNewTestTx(txId)
+		txs = append(txs, tx)
+		txRWSetMap[txId] = &commonPb.TxRWSet{
+			TxId:    txId,
+			TxReads: nil,
+			TxWrites: []*commonPb.TxWrite{{
+				Key:          []byte(fmt.Sprintf("key%d", i)),
+				Value:        []byte(fmt.Sprintf("value[%d]", i)),
+				ContractName: "TestContract",
+			}},
+		}
+	}
+	return txs, txRWSetMap
 }
 
 func createNewTestTx(txID string) *commonPb.Transaction {

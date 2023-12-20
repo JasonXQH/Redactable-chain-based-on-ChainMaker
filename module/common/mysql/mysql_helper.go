@@ -96,6 +96,35 @@ func GetSalt(blockheight uint64) ([]byte, error) {
 	return salt, nil
 }
 
+func GetBlockHashFromMysql(blockheight uint64) ([]byte, error) {
+	// 连接到数据库
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// 更新数据库中的salt
+	query := "SELECT block_hash FROM block_info WHERE block_height = ?"
+	var block_hash []byte
+	err = db.QueryRow(query, blockheight).Scan(&block_hash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 没有找到对应的条目
+			return nil, nil
+		}
+		// 数据库查询出错
+		return nil, fmt.Errorf("failed to query randomsalt from database: %v", err)
+	}
+	// 检查salt是否为空
+	if len(block_hash) == 0 {
+		return nil, fmt.Errorf("salt is empty for block height %d", blockheight)
+	}
+
+	return block_hash, nil
+}
+
 func GetOldMerkleTreeRoot(blockheight uint64) ([]byte, error) {
 	// 连接到数据库
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", mysqlUser, mysqlPassword, mysqlHost, mysqlPort, mysqlDatabase)

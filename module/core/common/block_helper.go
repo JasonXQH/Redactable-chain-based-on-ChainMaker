@@ -9,6 +9,7 @@ package common
 import (
 	"bytes"
 	"chainmaker.org/chainmaker-go/module/common/chameleon"
+	"chainmaker.org/chainmaker-go/module/common/mysql"
 	"chainmaker.org/chainmaker-go/module/core/common/scheduler"
 	"chainmaker.org/chainmaker-go/module/core/provider/conf"
 	"chainmaker.org/chainmaker-go/module/subscriber"
@@ -1242,9 +1243,9 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 	// put consensus qc into block
 	lastProposed.AdditionalData = block.AdditionalData
 	//TODO xqh 修改
-	//lastProposed.Header.BlockHash, _ = chameleon.GetBlockHash(lastProposed)
-	//_, _ = chameleon.ConvertToHashType(lastProposed.Hash())
-	//chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
+	lastProposed.Header.BlockHash, _ = mysql.GetBlockHashFromMysql(lastProposed.Header.BlockHeight)
+	hashString, _ := chameleon.ConvertToHashType(lastProposed.Hash())
+	chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
 	// shallow copy, create a new block to prevent panic during storage in marshal
 	//提交区块
 	commitBlock := CopyBlock(lastProposed)
