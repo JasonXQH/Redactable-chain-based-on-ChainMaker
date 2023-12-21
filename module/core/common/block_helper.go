@@ -1244,6 +1244,7 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 	lastProposed.AdditionalData = block.AdditionalData
 	//TODO xqh 修改
 	lastProposed.Header.BlockHash, _ = mysql.GetBlockHashFromMysql(lastProposed.Header.BlockHeight)
+	//lastProposed.Header.BlockHash,_ = chameleon.GetBlockHash(lastProposed)
 	hashString, _ := chameleon.ConvertToHashType(lastProposed.Hash())
 	chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
 	// shallow copy, create a new block to prevent panic during storage in marshal

@@ -25,12 +25,7 @@ func GetBlockByTxID(txID string) *commonpb.BlockInfo {
 	}
 
 	stdoutResult := stdoutBuf.String()
-	//stderrResult := stderrBuf.String()
-	//
-	//fmt.Println("标准输出:", stdoutResult)
-	//if stderrResult != "" {
-	//	fmt.Println("标准错误输出:", stderrResult)
-	//}
+	fmt.Println("标准输出:", stdoutResult)
 	var blockInfo *commonpb.BlockInfo
 	err = json.Unmarshal([]byte(stdoutResult), &blockInfo)
 	if err != nil {

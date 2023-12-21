@@ -3,5 +3,5 @@ package locate
 import "testing"
 
 func TestGetBlockByHash(t *testing.T) {
-	GetBlockByHash("65s3OSxZe7yyIv05nLiB2Yy2U84xI/f/np8xmjNFwiE=")
+	GetBlockByHash("9p5Ddj6NAp8nkiAFfV2Kd1EW6KAFTiD8Cyz6xIhT8aE=")
 }
