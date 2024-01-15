@@ -1,13 +1,21 @@
 package common
 
 import (
+	"chainmaker.org/chainmaker/common/v2/msgbus"
 	"chainmaker.org/chainmaker/localconf/v2"
 	commonpb "chainmaker.org/chainmaker/pb-go/v2/common"
 	"chainmaker.org/chainmaker/pb-go/v2/config"
 	"chainmaker.org/chainmaker/protocol/v2"
 	"chainmaker.org/chainmaker/utils/v2"
 	"fmt"
+	"strconv"
 )
+
+/*
+Copyright (C) BABEC. All rights reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 type ReplaceBlock struct {
 	store           protocol.BlockchainStore
@@ -16,45 +24,47 @@ type ReplaceBlock struct {
 	ledgerCache     protocol.LedgerCache
 	chainConf       protocol.ChainConf
 	txFilter        protocol.TxFilter
+	msgBus          msgbus.MessageBus
 }
 
-func (rb *ReplaceBlock) ReplaceBlock(
+// CommitBlock the action that all consensus types do when a block is committed
+func (pb *ReplaceBlock) ReplaceBlock(
 	block *commonpb.Block,
 	rwSetMap map[string]*commonpb.TxRWSet,
-	// conEventMap map[string][]*commonpb.ContractEvent
-) (
+	conEventMap map[string][]*commonpb.ContractEvent) (
 	dbLasts, snapshotLasts, confLasts, otherLasts, pubEventLasts, filterLasts int64, blockInfo *commonpb.BlockInfo,
 	err error) {
-
-	//更新数据库中的salt
-
-	//新的区块更新上链
-
 	// record block
 	rwSet := utils.RearrangeRWSet(block, rwSetMap)
 	// record contract event
-	//events := rearrangeContractEvent(block, conEventMap)
-	fmt.Println("rwSet: ", rwSet)
+	events := rearrangeContractEvent(block, conEventMap)
+
+	if block.Header.BlockVersion >= blockVersion230 {
+		// notify chainConf to update config before put block
+		startConfTick := utils.CurrentTimeMillisSeconds()
+		if err = pb.NotifyMessage(block, events); err != nil {
+			return 0, 0, 0, 0, 0, 0, nil, err
+		}
+		confLasts = utils.CurrentTimeMillisSeconds() - startConfTick
+	}
 	// put block
 	startDBTick := utils.CurrentTimeMillisSeconds()
-	if err = rb.store.PutBlock(block, rwSet); err != nil {
+	if err = pb.store.ReplaceBlock(block, rwSet); err != nil {
 		// if put db error, then panic
-		rb.log.Error(err)
-		fmt.Println("err in putblock : ", err)
+		pb.log.Error(err)
 		panic(err)
 	}
-	rb.ledgerCache.SetLastCommittedBlock(block)
+	pb.ledgerCache.SetLastCommittedBlock(block)
 	dbLasts = utils.CurrentTimeMillisSeconds() - startDBTick
 
 	// TxFilter adds
 	filterLasts = utils.CurrentTimeMillisSeconds()
 	// The default filter type does not run AddsAndSetHeight
 	if localconf.ChainMakerConfig.TxFilter.Type != int32(config.TxFilterType_None) {
-		err = rb.txFilter.AddsAndSetHeight(utils.GetTxIds(block.Txs), block.Header.GetBlockHeight())
+		err = pb.txFilter.AddsAndSetHeight(utils.GetTxIds(block.Txs), block.Header.GetBlockHeight())
 		if err != nil {
 			// if add filter error, then panic
-			rb.log.Error(err)
-			fmt.Println("err in AddsAndSetHeight : ", err)
+			pb.log.Error(err)
 			panic(err)
 		}
 	}
@@ -62,24 +72,25 @@ func (rb *ReplaceBlock) ReplaceBlock(
 
 	// clear snapshot
 	startSnapshotTick := utils.CurrentTimeMillisSeconds()
-	if err = rb.snapshotManager.NotifyBlockCommitted(block); err != nil {
+	if err = pb.snapshotManager.NotifyBlockCommitted(block); err != nil {
 		err = fmt.Errorf("notify snapshot error [%d](hash:%x)",
 			block.Header.BlockHeight, block.Header.BlockHash)
-		rb.log.Error(err)
+		pb.log.Error(err)
 		return 0, 0, 0, 0, 0, 0, nil, err
 	}
 	snapshotLasts = utils.CurrentTimeMillisSeconds() - startSnapshotTick
-	//// v220_compat Deprecated
-	//if block.Header.BlockVersion < blockVersion230 {
-	//	// notify chainConf to update config when config block committed
-	//	startConfTick := utils.CurrentTimeMillisSeconds()
-	//	if err = NotifyChainConf(block, cb.chainConf); err != nil {
-	//		return 0, 0, 0, 0, 0, 0, nil, err
-	//	}
-	//	confLasts = utils.CurrentTimeMillisSeconds() - startConfTick
-	//}
+	// v220_compat Deprecated
+	if block.Header.BlockVersion < blockVersion230 {
+		// notify chainConf to update config when config block committed
+		startConfTick := utils.CurrentTimeMillisSeconds()
+		if err = NotifyChainConf(block, pb.chainConf); err != nil {
+			return 0, 0, 0, 0, 0, 0, nil, err
+		}
+		confLasts = utils.CurrentTimeMillisSeconds() - startConfTick
+	}
 	// contract event
-	//pubEventLasts = cb.publishContractEvent(block, events)
+	pubEventLasts = pb.publishContractEvent(block, events)
+
 	// monitor
 	startOtherTick := utils.CurrentTimeMillisSeconds()
 	blockInfo = &commonpb.BlockInfo{
@@ -87,17 +98,18 @@ func (rb *ReplaceBlock) ReplaceBlock(
 		RwsetList: rwSet,
 	}
 	otherLasts = utils.CurrentTimeMillisSeconds() - startOtherTick
+
 	return
 }
 
 // publishContractEvent publish contract event, return time used
-func (rb *ReplaceBlock) publishContractEvent(block *commonpb.Block, events []*commonpb.ContractEvent) int64 {
+func (pb *ReplaceBlock) publishContractEvent(block *commonpb.Block, events []*commonpb.ContractEvent) int64 {
 	if len(events) == 0 {
 		return 0
 	}
 
 	startPublishContractEventTick := utils.CurrentTimeMillisSeconds()
-	rb.log.DebugDynamic(func() string {
+	pb.log.DebugDynamic(func() string {
 		return fmt.Sprintf("start publish contractEventsInfo: block[%d] ",
 			block.Header.BlockHeight)
 	})
@@ -114,21 +126,31 @@ func (rb *ReplaceBlock) publishContractEvent(block *commonpb.Block, events []*co
 		}
 		eventsInfo = append(eventsInfo, eventInfo)
 	}
-	//cb.msgBus.Publish(msgbus.ContractEventInfo, &commonpb.ContractEventInfoList{ContractEvents: eventsInfo})
+	pb.msgBus.Publish(msgbus.ContractEventInfo, &commonpb.ContractEventInfoList{ContractEvents: eventsInfo})
 	return utils.CurrentTimeMillisSeconds() - startPublishContractEventTick
 }
 
-//
-//func rearrangeContractEvent(block *commonpb.Block,
-//	conEventMap map[string][]*commonpb.ContractEvent) []*commonpb.ContractEvent {
-//	conEvent := make([]*commonpb.ContractEvent, 0, len(block.Txs))
-//	if conEventMap == nil {
-//		return conEvent
-//	}
-//	for _, tx := range block.Txs {
-//		if event, ok := conEventMap[tx.Payload.TxId]; ok {
-//			conEvent = append(conEvent, event...)
-//		}
-//	}
-//	return conEvent
-//}
+// NotifyMessage Notify other subscription modules of chain configuration and certificate management events
+func (pb *ReplaceBlock) NotifyMessage(block *commonpb.Block, events []*commonpb.ContractEvent) (err error) {
+	if block == nil || len(block.GetTxs()) == 0 {
+		return nil
+	}
+
+	if native, _ := utils.IsNativeTx(block.Txs[0]); !native {
+		return nil
+	}
+
+	for _, event := range events { // one by one
+		data := event.EventData
+		if len(data) == 0 {
+			continue
+		}
+		topicEnum, err := strconv.Atoi(event.Topic)
+		if err != nil {
+			continue
+		}
+		topic := msgbus.Topic(topicEnum)
+		pb.msgBus.PublishSync(topic, data) // data is a []string, hexToString(proto.Marshal(data))
+	}
+	return nil
+}

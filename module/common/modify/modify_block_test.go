@@ -5,5 +5,6 @@ import (
 )
 
 func TestModifyBlockByHeight(t *testing.T) {
-	ModifyBlockByHeight(1)
+	_, _, _ = ModifyBlockByHeight(1)
+	//printTxIds(block)
 }

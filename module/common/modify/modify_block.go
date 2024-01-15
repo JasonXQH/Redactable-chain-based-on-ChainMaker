@@ -12,9 +12,9 @@ import (
 	"sync"
 )
 
-func ModifyBlockByHeight(height uint64) (*commonPb.Block, []byte) {
+func ModifyBlockByHeight(height uint64) (*commonPb.Block, []byte, map[string]*commonPb.TxRWSet) {
 	oldBlock := locate.GetBlockByHeight(height).Block
-	oldBlockHash, _ := chameleon.ConvertToHashType(oldBlock.Header.BlockHash)
+	//oldBlockHash, _ := chameleon.ConvertToHashType(oldBlock.Header.BlockHash)
 
 	txs, txRWSetMap := GetTxsAndRWSetMap()
 	oldBlock.Txs = txs
@@ -39,9 +39,9 @@ func ModifyBlockByHeight(height uint64) (*commonPb.Block, []byte) {
 	newHash := chameleon.Hash(newMerkleTreeRootHash, newSalt)
 	newHashByte := chameleon.ConvertToBytesType(newHash)
 	oldBlock.Header.BlockHash = newHashByte
-	fmt.Println("newHash: ", newHash.String(), "oldBlockHash: ", oldBlockHash.String())
+	//fmt.Println("newHash: ", newHash.String(), "oldBlockHash: ", oldBlockHash.String())
 	newBlock := common.CopyBlock(oldBlock)
-	return newBlock, newSalt
+	return newBlock, newSalt, txRWSetMap
 }
 
 func ModifyBlockByHash(blockhash string) (*commonPb.Block, []byte) {

@@ -29,7 +29,7 @@ func GetBlockByHeight(blockHeight uint64) *commonpb.BlockInfo {
 	stdoutResult := stdoutBuf.String()
 	var blockInfo *commonpb.BlockInfo
 	err = json.Unmarshal([]byte(stdoutResult), &blockInfo)
-	fmt.Println(stdoutResult)
+	//fmt.Println(stdoutResult)
 	if err != nil {
 		fmt.Println("Error parsing JSON:", err)
 		return nil

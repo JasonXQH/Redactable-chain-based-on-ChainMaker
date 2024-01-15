@@ -34,7 +34,7 @@ func GetBlockByHash(blockHash string) *commonpb.BlockInfo {
 		return nil
 	}
 	//fmt.Println(blockInfo.Block.Txs)
-	fmt.Println("标准输出:", stdoutResult)
+	//fmt.Println("标准输出:", stdoutResult)
 	//if stderrResult != "" {
 	//	fmt.Println("标准错误输出:", stderrResult)
 	//}

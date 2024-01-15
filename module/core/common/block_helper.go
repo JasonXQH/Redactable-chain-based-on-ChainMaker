@@ -1102,6 +1102,7 @@ type BlockCommitterImpl struct {
 	subscriber              *subscriber.EventSubscriber // subscriber
 	verifier                protocol.BlockVerifier      // block verifier
 	commonCommit            *CommitBlock
+	commonReplace           *ReplaceBlock
 	metricBlockSize         *prometheus.HistogramVec // metric block size
 	metricBlockHeight       *prometheus.GaugeVec     // metric block height
 	metricTxCounter         *prometheus.CounterVec   // metric transaction counter
@@ -1110,9 +1111,8 @@ type BlockCommitterImpl struct {
 	metricTpsGauge          *prometheus.GaugeVec     // metric real-time transaction per second (TPS)
 	storeHelper             conf.StoreHelper
 	blockInterval           int64
-
-	mTxCount     uint64 // store tx total count for persistent
-	mBlockHeight uint64 // store latest block height for persistent
+	mTxCount                uint64 // store tx total count for persistent
+	mBlockHeight            uint64 // store latest block height for persistent
 }
 
 type BlockCommitterConfig struct {
@@ -1145,6 +1145,15 @@ func NewBlockCommitter(config BlockCommitterConfig, log protocol.Logger) (protoc
 		verifier:        config.Verifier,
 		storeHelper:     config.StoreHelper,
 		commonCommit: &CommitBlock{
+			store:           config.BlockchainStore,
+			txFilter:        config.TxFilter,
+			log:             log,
+			snapshotManager: config.SnapshotManager,
+			ledgerCache:     config.LedgerCache,
+			chainConf:       config.ChainConf,
+			msgBus:          config.MsgBus,
+		},
+		commonReplace: &ReplaceBlock{
 			store:           config.BlockchainStore,
 			txFilter:        config.TxFilter,
 			log:             log,
@@ -1220,6 +1229,7 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 	defer chain.mu.Unlock()
 	//获取区块高度
 	height := block.Header.BlockHeight
+	//结束
 	//验证区块合法性
 	if err = chain.isBlockLegal(block); err != nil {
 		if err == commonErrors.ErrBlockHadBeenCommited {
@@ -1242,18 +1252,22 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 	}
 	// put consensus qc into block
 	lastProposed.AdditionalData = block.AdditionalData
+
+	/**-----------------------------------------------------------------------********/
 	//TODO xqh 修改
 	lastProposed.Header.BlockHash, _ = mysql.GetBlockHashFromMysql(lastProposed.Header.BlockHeight)
-	//lastProposed.Header.BlockHash,_ = chameleon.GetBlockHash(lastProposed)
-	hashString, _ := chameleon.ConvertToHashType(lastProposed.Hash())
-	chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
+	/**-----------------------------------------------------------------------********/
+
+	//hashString, _ := chameleon.ConvertToHashType(lastProposed.Hash())
+	//chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
 	// shallow copy, create a new block to prevent panic during storage in marshal
 	//提交区块
 	commitBlock := CopyBlock(lastProposed)
 
 	checkLasts := utils.CurrentTimeMillisSeconds() - startTick
 	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err :=
-		chain.commonCommit.CommitBlock(commitBlock, rwSetMap, conEventMap) // use commitBlock
+		//chain.commonCommit.CommitBlock(commitBlock, rwSetMap, conEventMap) // use commitBlock
+		chain.commonReplace.ReplaceBlock(commitBlock, rwSetMap, conEventMap)
 	if err != nil {
 		chain.log.Errorf("block common commit failed: %s, blockHeight: (%d)",
 			err.Error(), lastProposed.Header.BlockHeight)
@@ -1305,6 +1319,102 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 			"time used(check:%d,db:%d,ss:%d,conf:%d,pool:%d,pubConEvent:%d,filter:%d,other:%d,total:%d,interval:%d)",
 		height, lastProposed.Header.TxCount, lastProposed.Header.BlockHash,
 		checkLasts, dbLasts, snapshotLasts, confLasts, poolLasts, pubEvent, filterLasts, otherLasts, elapsed, interval)
+	if localconf.ChainMakerConfig.MonitorConfig.Enabled {
+		blockInfoTmp := *blockInfo
+		go chain.updateMetrics(&blockInfoTmp, elapsed, interval)
+	}
+	return nil
+}
+
+func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap map[string]*commonPb.TxRWSet) (err error) {
+	//defer func() {
+	//	if panicError := recover(); panicError != nil {
+	//		if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
+	//			chain.log.Errorf("block [%d] rollback sql failed: %s", block.Header.BlockHeight, sqlErr)
+	//		}
+	//
+	//		panic(fmt.Sprintf("cache add block fail, panic: %v %s", panicError, debug.Stack()))
+	//	}
+	//	if err != nil {
+	//		if err == commonErrors.ErrBlockHadBeenCommited {
+	//			chain.log.Warnf("cache add block fail, err: %v", err)
+	//			return
+	//		}
+	//		if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
+	//			chain.log.Errorf("block [%d] rollback sql failed: %s", block.Header.BlockHeight, sqlErr)
+	//			panic("add block err: " + err.Error() + string(debug.Stack()))
+	//		}
+	//	}
+	//}()
+
+	startTick := utils.CurrentTimeMillisSeconds()
+	chain.log.Debugf("replace block(%d,%x)=(%x,%d,%d)", block.Header.BlockHeight, block.Header.BlockHash,
+		block.Header.PreBlockHash, block.Header.TxCount, len(block.Txs))
+	chain.mu.Lock()
+	defer chain.mu.Unlock()
+	//获取区块高度
+	height := block.Header.BlockHeight
+
+	//hashString, _ := chameleon.ConvertToHashType(lastProposed.Hash())
+	//chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
+	// shallow copy, create a new block to prevent panic during storage in marshal
+	//提交区块
+
+	checkLasts := utils.CurrentTimeMillisSeconds() - startTick
+	conEventMap := map[string][]*commonPb.ContractEvent(nil)
+	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err :=
+		chain.commonReplace.ReplaceBlock(block, rwSetMap, conEventMap) // use ReplaceBlock
+	if err != nil {
+		chain.log.Errorf("block common commit failed: %s, blockHeight: (%d)",
+			err.Error(), block.Header.BlockHeight)
+	}
+
+	// Remove txs from txpool. Remove will invoke proposeSignal from txpool if pool size > txcount
+	//与交易池同步
+	//startPoolTick := utils.CurrentTimeMillisSeconds()
+	txRetry, batchRetry, batchIds, err := chain.syncWithTxPool(block, height)
+	if err != nil {
+		return err
+	}
+
+	if TxPoolType == batch.TxPoolType {
+		chain.log.Infof("remove batchId[%d] and retry batchId[%d] in add block", len(batchIds), len(batchRetry))
+		chain.txPool.RetryAndRemoveTxBatches(batchRetry, batchIds)
+	} else {
+		chain.log.Infof("remove txs[%d] and retry txs[%d] in add block", len(block.Txs), len(txRetry))
+		RetryAndRemoveTxs(chain.txPool, txRetry, block.Txs, chain.log)
+	}
+
+	//poolLasts := utils.CurrentTimeMillisSeconds() - startPoolTick
+	//
+	//chain.proposalCache.ClearProposedBlockAt(height)
+
+	//// clear propose repeat map before send
+	//ClearProposeRepeatTimerMap()
+	////清理缓存和发布消息
+	//// synchronize new block height to consensus and sync module
+	//chain.msgBus.PublishSafe(msgbus.BlockInfo, blockInfo)
+	//
+	//if chain.chainConf.ChainConfig().Consensus.Type == consensus.ConsensusType_MAXBFT {
+	//	governance, err := chain.getGovernanceFromBlock(block)
+	//	if err != nil {
+	//		err = fmt.Errorf("get governance from block failed. error: %+v", err)
+	//		return err
+	//	}
+	//	if governance != nil {
+	//		chain.msgBus.PublishSafe(msgbus.MaxbftEpochConf, governance)
+	//	}
+	//}
+	//记录和日志输出：
+	curTime := utils.CurrentTimeMillisSeconds()
+	elapsed := curTime - startTick
+	interval := curTime - chain.blockInterval
+	chain.blockInterval = curTime
+	chain.log.Infof(
+		"replace block [%d](count:%d,hash:%x)"+
+			"time used(check:%d,db:%d,ss:%d,conf:%d,pubConEvent:%d,filter:%d,other:%d,total:%d,interval:%d)",
+		height, block.Header.TxCount, block.Header.BlockHash,
+		checkLasts, dbLasts, snapshotLasts, confLasts, pubEvent, filterLasts, otherLasts, elapsed, interval)
 	if localconf.ChainMakerConfig.MonitorConfig.Enabled {
 		blockInfoTmp := *blockInfo
 		go chain.updateMetrics(&blockInfoTmp, elapsed, interval)
