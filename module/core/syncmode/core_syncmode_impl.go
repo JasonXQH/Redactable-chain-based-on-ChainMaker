@@ -27,7 +27,7 @@ import (
 
 // CoreEngine is a block handle engine.
 // One core engine for one chain.
-//nolint: structcheck,unused
+// nolint: structcheck,unused
 type CoreEngine struct {
 	chainId   string             // chainId, identity of a chain
 	chainConf protocol.ChainConf // chain config
@@ -159,7 +159,7 @@ func (c *CoreEngine) OnMessage(message *msgbus.Message) {
 	// 3. receive commit block message from consensus
 	// 4. receive propose signal from txpool
 	// 5. receive build proposal signal from maxbft consensus
-
+	// 6. receive replace block from
 	switch message.Topic {
 	case msgbus.ProposeState:
 		if proposeStatus, ok := message.Payload.(bool); ok {
@@ -182,6 +182,17 @@ func (c *CoreEngine) OnMessage(message *msgbus.Message) {
 				}
 			}
 		}()
+	//case msgbus.ReplaceBlock:
+	//	go func() {
+	//		if block, ok := message.Payload.(*commonpb.Block); ok {
+	//			if err := c.BlockCommitter.ReplaceBlock(block); err != nil {
+	//				c.log.Warnf("put block(%d,%x) error %s",
+	//					block.Header.BlockHeight,
+	//					block.Header.BlockHash,
+	//					err.Error())
+	//			}
+	//		}
+	//	}()
 	case msgbus.TxPoolSignal:
 		if signal, ok := message.Payload.(*txpoolpb.TxPoolSignal); ok {
 			c.blockProposer.OnReceiveTxPoolSignal(signal)

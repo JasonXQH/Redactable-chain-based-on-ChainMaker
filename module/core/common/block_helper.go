@@ -1266,7 +1266,7 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 
 	checkLasts := utils.CurrentTimeMillisSeconds() - startTick
 	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err :=
-		//chain.commonCommit.CommitBlock(commitBlock, rwSetMap, conEventMap) // use commitBlock
+	//chain.commonCommit.CommitBlock(commitBlock, rwSetMap, conEventMap) // use commitBlock
 		chain.commonReplace.ReplaceBlock(commitBlock, rwSetMap, conEventMap)
 	if err != nil {
 		chain.log.Errorf("block common commit failed: %s, blockHeight: (%d)",
@@ -1327,25 +1327,25 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 }
 
 func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap map[string]*commonPb.TxRWSet) (err error) {
-	//defer func() {
-	//	if panicError := recover(); panicError != nil {
-	//		if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
-	//			chain.log.Errorf("block [%d] rollback sql failed: %s", block.Header.BlockHeight, sqlErr)
-	//		}
-	//
-	//		panic(fmt.Sprintf("cache add block fail, panic: %v %s", panicError, debug.Stack()))
-	//	}
-	//	if err != nil {
-	//		if err == commonErrors.ErrBlockHadBeenCommited {
-	//			chain.log.Warnf("cache add block fail, err: %v", err)
-	//			return
-	//		}
-	//		if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
-	//			chain.log.Errorf("block [%d] rollback sql failed: %s", block.Header.BlockHeight, sqlErr)
-	//			panic("add block err: " + err.Error() + string(debug.Stack()))
-	//		}
-	//	}
-	//}()
+	defer func() {
+		if panicError := recover(); panicError != nil {
+			if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
+				chain.log.Errorf("block [%d] rollback sql failed: %s", block.Header.BlockHeight, sqlErr)
+			}
+
+			panic(fmt.Sprintf("cache add block fail, panic: %v %s", panicError, debug.Stack()))
+		}
+		if err != nil {
+			if err == commonErrors.ErrBlockHadBeenCommited {
+				chain.log.Warnf("cache add block fail, err: %v", err)
+				return
+			}
+			if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
+				chain.log.Errorf("block [%d] rollback sql failed: %s", block.Header.BlockHeight, sqlErr)
+				panic("add block err: " + err.Error() + string(debug.Stack()))
+			}
+		}
+	}()
 
 	startTick := utils.CurrentTimeMillisSeconds()
 	chain.log.Debugf("replace block(%d,%x)=(%x,%d,%d)", block.Header.BlockHeight, block.Header.BlockHash,
@@ -1386,25 +1386,25 @@ func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap ma
 	}
 
 	//poolLasts := utils.CurrentTimeMillisSeconds() - startPoolTick
-	//
-	//chain.proposalCache.ClearProposedBlockAt(height)
 
-	//// clear propose repeat map before send
-	//ClearProposeRepeatTimerMap()
-	////清理缓存和发布消息
-	//// synchronize new block height to consensus and sync module
-	//chain.msgBus.PublishSafe(msgbus.BlockInfo, blockInfo)
-	//
-	//if chain.chainConf.ChainConfig().Consensus.Type == consensus.ConsensusType_MAXBFT {
-	//	governance, err := chain.getGovernanceFromBlock(block)
-	//	if err != nil {
-	//		err = fmt.Errorf("get governance from block failed. error: %+v", err)
-	//		return err
-	//	}
-	//	if governance != nil {
-	//		chain.msgBus.PublishSafe(msgbus.MaxbftEpochConf, governance)
-	//	}
-	//}
+	chain.proposalCache.ClearProposedBlockAt(height)
+
+	// clear propose repeat map before send
+	ClearProposeRepeatTimerMap()
+	//清理缓存和发布消息
+	// synchronize new block height to consensus and sync module
+	chain.msgBus.PublishSafe(msgbus.BlockInfo, blockInfo)
+
+	if chain.chainConf.ChainConfig().Consensus.Type == consensus.ConsensusType_MAXBFT {
+		governance, err := chain.getGovernanceFromBlock(block)
+		if err != nil {
+			err = fmt.Errorf("get governance from block failed. error: %+v", err)
+			return err
+		}
+		if governance != nil {
+			chain.msgBus.PublishSafe(msgbus.MaxbftEpochConf, governance)
+		}
+	}
 	//记录和日志输出：
 	curTime := utils.CurrentTimeMillisSeconds()
 	elapsed := curTime - startTick
