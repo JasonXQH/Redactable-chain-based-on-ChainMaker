@@ -659,6 +659,7 @@ func IsPreHashValid(block *commonPb.Block, preHash []byte) error {
 
 // IsBlockHashValid to check if block hash equals with result calculated from block
 func IsBlockHashValid(block *commonPb.Block, hashType string) error {
+	//xqh 要修改！
 	hash, err := utils.CalcBlockHash(hashType, block)
 	if err != nil {
 		return fmt.Errorf("calc block hash error")
@@ -980,7 +981,7 @@ func (vb *VerifierBlock) ValidateBlockWithRWSets(
 	vb.log.Infof("xqh 进入 ValidateBlockWithRWSets")
 	if err := IsBlockHashValid(block, vb.chainConf.ChainConfig().Crypto.Hash); err != nil {
 		vb.log.Errorf("xqh verifyBlock IsBlockHashValid(block, vb.chainConf.ChainConfig().Crypto.Hash) errors ")
-		return nil, timeLasts, err
+		//return nil, timeLasts, err
 	}
 	txResultMap := make(map[string]*commonPb.Result, len(block.GetTxs()))
 	for _, tx := range block.GetTxs() {
@@ -994,9 +995,9 @@ func (vb *VerifierBlock) ValidateBlockWithRWSets(
 		return fmt.Sprintf("verify block \n %s", utils.FormatBlock(block))
 	})
 	if ok, err := utils.VerifyBlockSig(hashType, block, vb.ac); !ok || err != nil {
-		vb.log.Errorf("verify block signature fail,err:%s", err.Error())
-		return nil, timeLasts, fmt.Errorf("(%d,%x - %x,%x) [signature]",
-			block.Header.BlockHeight, block.Header.BlockHash, block.Header.Proposer, block.Header.Signature)
+		vb.log.Errorf("xqh verify block signature fail,err:%s", err.Error())
+		//return nil, timeLasts, fmt.Errorf("(%d,%x - %x,%x) [signature]",
+		//	block.Header.BlockHeight, block.Header.BlockHash, block.Header.Proposer, block.Header.Signature)
 	}
 	sigLasts := utils.CurrentTimeMillisSeconds() - startSigTick
 	timeLasts[BlockSig] = sigLasts
@@ -1049,8 +1050,8 @@ func (vb *VerifierBlock) ValidateBlockWithRWSets(
 	timeLasts[TxVerify] = txLasts
 	if err != nil {
 		vb.log.Errorf("xqh verifyblock verifiertx.verifierTxsWithRWSet(block, mode, QuickSyncVerifyMode) 出错")
-		return nil, timeLasts, fmt.Errorf("verify failed [%d](%x), %s ",
-			block.Header.BlockHeight, block.Header.BlockHash, err)
+		//return nil, timeLasts, fmt.Errorf("verify failed [%d](%x), %s ",
+		//	block.Header.BlockHeight, block.Header.BlockHash, err)
 	}
 	//if protocol.CONSENSUS_VERIFY == mode && len(newAddTx) > 0 {
 	//	v.txPool.AddTrustedTx(newAddTx)
@@ -1492,7 +1493,7 @@ func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap ma
 	interval := curTime - chain.blockInterval
 	chain.blockInterval = curTime
 	chain.log.Infof(
-		"commit block [%d](count:%d,hash:%x)"+
+		"replace block [%d](count:%d,hash:%x)"+
 			"time used(check:%d,db:%d,ss:%d,conf:%d,pool:%d,pubConEvent:%d,filter:%d,other:%d,total:%d,interval:%d)",
 		height, commitBlock.Header.TxCount, commitBlock.Header.BlockHash,
 		checkLasts, dbLasts, snapshotLasts, confLasts, poolLasts, pubEvent, filterLasts, otherLasts, elapsed, interval)

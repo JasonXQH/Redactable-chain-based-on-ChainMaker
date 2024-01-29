@@ -320,7 +320,6 @@ func (v *BlockVerifierImpl) VerifyBlockWithRwSets(block *commonpb.Block,
 	if err != nil {
 		v.log.Warnf("verify failed [%d](%x),preBlockHash:%x, %s",
 			newBlock.Header.BlockHeight, newBlock.Header.BlockHash, newBlock.Header.PreBlockHash, err.Error())
-
 		// rollback sql
 		if sqlErr := v.storeHelper.RollBack(newBlock, v.blockchainStore); sqlErr != nil {
 			v.log.Errorf("block [%d] rollback sql failed: %s", newBlock.Header.BlockHeight, sqlErr)
@@ -442,6 +441,7 @@ func (v *BlockVerifierImpl) validateBlock(block, lastBlock *commonpb.Block, mode
 func (v *BlockVerifierImpl) validateBlockWithRWSets(block, lastBlock *commonpb.Block, mode protocol.VerifyMode,
 	txRWSetMap map[string]*commonpb.TxRWSet) (
 	map[string][]*commonpb.ContractEvent, map[string]int64, error) {
+
 	hashType := v.chainConf.ChainConfig().Crypto.Hash
 	timeLasts := make(map[string]int64)
 
@@ -451,6 +451,7 @@ func (v *BlockVerifierImpl) validateBlockWithRWSets(block, lastBlock *commonpb.B
 	lastBlockHash := lastBlock.Header.BlockHash
 	err := common.CheckPreBlock(block, lastBlockHash, proposedHeight)
 	if err != nil {
+		v.log.Infof("xqh validateBlockWithRWSets  common.CheckPreBlock(block, lastBlockHash, proposedHeight)出现Error")
 		return nil, timeLasts, err
 	}
 
