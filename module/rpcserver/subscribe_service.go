@@ -46,7 +46,6 @@ func (s *ApiService) SubscribeWS(rawTxReq *commonPb.RawTxRequest, server apiPb.R
 
 // Subscribe - deal block/tx/contracEvent subscribe request
 func (s *ApiService) Subscribe(req *commonPb.TxRequest, server apiPb.RpcNode_SubscribeServer) error {
-
 	var (
 		errCode commonErr.ErrCode
 		errMsg  string

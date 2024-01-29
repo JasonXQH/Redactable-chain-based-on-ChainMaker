@@ -63,6 +63,19 @@ type SnapshotImpl struct {
 
 // NewQuerySnapshot create a snapshot for query tx
 func NewQuerySnapshot(store protocol.BlockchainStore, log protocol.Logger) (*SnapshotImpl, error) {
+	//pc, _, _, ok := runtime.Caller(1) // 1 表示上一层调用者
+	//if !ok {
+	//	fmt.Println("无法获取调用者信息")
+	//	//return
+	//} else {
+	//	fn := runtime.FuncForPC(pc)
+	//	if fn == nil {
+	//		fmt.Println("无法获取函数名")
+	//		//return
+	//	} else {
+	//		log.Infof("xqh 进入 NewQuerySnapshot 调用者函数为：", fn.Name())
+	//	}
+	//}
 	txCount := 1
 	lastBlock, err := store.GetLastBlock()
 	if err != nil {

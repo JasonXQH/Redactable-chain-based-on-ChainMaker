@@ -503,6 +503,7 @@ func (server *ChainMakerServer) GetNetService(chainId string) (protocol.NetServi
 // GetBlockchain get Blockchain of chain which id is the given.
 func (server *ChainMakerServer) GetBlockchain(chainId string) (*Blockchain, error) {
 	if blockchain, ok := server.blockchains.Load(chainId); ok {
+
 		return blockchain.(*Blockchain), nil
 	}
 

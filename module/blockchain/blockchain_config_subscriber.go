@@ -33,6 +33,9 @@ func (bc *Blockchain) OnMessage(msg *msgbus.Message) {
 			bc.log.Errorf("blockchain start failed when the configuration of blockchain updating, %s", err)
 			return
 		}
+	case msgbus.ModifyBlock:
+		bc.log.Infof("xqh Blockchain收到 msgbus.ModifyBlock 准备publish")
+		bc.msgBus.Publish(msgbus.ModifyBlock, msg.Payload)
 	}
 }
 

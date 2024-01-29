@@ -27,34 +27,37 @@ type ReplaceBlock struct {
 	msgBus          msgbus.MessageBus
 }
 
-// CommitBlock the action that all consensus types do when a block is committed
+// ReplaceBlock the action that all consensus types do when a block is committed
 func (pb *ReplaceBlock) ReplaceBlock(
 	block *commonpb.Block,
 	rwSetMap map[string]*commonpb.TxRWSet,
-	conEventMap map[string][]*commonpb.ContractEvent) (
+	// conEventMap map[string][]*commonpb.ContractEvent
+) (
 	dbLasts, snapshotLasts, confLasts, otherLasts, pubEventLasts, filterLasts int64, blockInfo *commonpb.BlockInfo,
 	err error) {
+	pb.log.Infof("xqh 开始ReplaceBlock1")
 	// record block
 	rwSet := utils.RearrangeRWSet(block, rwSetMap)
 	// record contract event
-	events := rearrangeContractEvent(block, conEventMap)
-
-	if block.Header.BlockVersion >= blockVersion230 {
-		// notify chainConf to update config before put block
-		startConfTick := utils.CurrentTimeMillisSeconds()
-		if err = pb.NotifyMessage(block, events); err != nil {
-			return 0, 0, 0, 0, 0, 0, nil, err
-		}
-		confLasts = utils.CurrentTimeMillisSeconds() - startConfTick
-	}
+	//events := rearrangeContractEvent(block, conEventMap)
+	//
+	//if block.Header.BlockVersion >= blockVersion230 {
+	//	// notify chainConf to update config before put block
+	//	startConfTick := utils.CurrentTimeMillisSeconds()
+	//	if err = pb.NotifyMessage(block, events); err != nil {
+	//		return 0, 0, 0, 0, 0, 0, nil, err
+	//	}
+	//	confLasts = utils.CurrentTimeMillisSeconds() - startConfTick
+	//}
 	// put block
 	startDBTick := utils.CurrentTimeMillisSeconds()
 	if err = pb.store.ReplaceBlock(block, rwSet); err != nil {
-		// if put db error, then panic
-		pb.log.Error(err)
-		panic(err)
+		//// if put db error, then panic
+		//pb.log.Error(err)
+		//panic(err)
 	}
-	pb.ledgerCache.SetLastCommittedBlock(block)
+	//xqh 注释掉这句，不更新最后提交区块信息
+	//pb.ledgerCache.SetLastCommittedBlock(block)
 	dbLasts = utils.CurrentTimeMillisSeconds() - startDBTick
 
 	// TxFilter adds
@@ -69,7 +72,6 @@ func (pb *ReplaceBlock) ReplaceBlock(
 		}
 	}
 	filterLasts = utils.CurrentTimeMillisSeconds() - filterLasts
-
 	// clear snapshot
 	startSnapshotTick := utils.CurrentTimeMillisSeconds()
 	if err = pb.snapshotManager.NotifyBlockCommitted(block); err != nil {
@@ -89,7 +91,7 @@ func (pb *ReplaceBlock) ReplaceBlock(
 		confLasts = utils.CurrentTimeMillisSeconds() - startConfTick
 	}
 	// contract event
-	pubEventLasts = pb.publishContractEvent(block, events)
+	//pubEventLasts = pb.publishContractEvent(block, events)
 
 	// monitor
 	startOtherTick := utils.CurrentTimeMillisSeconds()
@@ -98,7 +100,6 @@ func (pb *ReplaceBlock) ReplaceBlock(
 		RwsetList: rwSet,
 	}
 	otherLasts = utils.CurrentTimeMillisSeconds() - startOtherTick
-
 	return
 }
 

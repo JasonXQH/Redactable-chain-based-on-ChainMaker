@@ -402,6 +402,7 @@ func (v *BlockVerifierImpl) validateBlockWithRWSets(block, lastBlock *commonpb.B
 	lastBlockHash := lastBlock.Header.BlockHash
 	err = common.CheckPreBlock(block, lastBlockHash, proposedHeight)
 	if err != nil {
+		v.log.Infof("xqh validateBlockWithRWSets 错误，common.CheckPreBlock 出现err")
 		return nil, timeLasts, err
 	}
 

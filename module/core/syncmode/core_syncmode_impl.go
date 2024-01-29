@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	mycommon "chainmaker.org/chainmaker-go/module/common"
 	"chainmaker.org/chainmaker-go/module/core/common"
 	"chainmaker.org/chainmaker-go/module/core/common/scheduler"
 	"chainmaker.org/chainmaker-go/module/core/provider/conf"
@@ -160,6 +161,7 @@ func (c *CoreEngine) OnMessage(message *msgbus.Message) {
 	// 4. receive propose signal from txpool
 	// 5. receive build proposal signal from maxbft consensus
 	// 6. receive replace block from
+
 	switch message.Topic {
 	case msgbus.ProposeState:
 		if proposeStatus, ok := message.Payload.(bool); ok {
@@ -182,17 +184,23 @@ func (c *CoreEngine) OnMessage(message *msgbus.Message) {
 				}
 			}
 		}()
-	//case msgbus.ReplaceBlock:
-	//	go func() {
-	//		if block, ok := message.Payload.(*commonpb.Block); ok {
-	//			if err := c.BlockCommitter.ReplaceBlock(block); err != nil {
-	//				c.log.Warnf("put block(%d,%x) error %s",
-	//					block.Header.BlockHeight,
-	//					block.Header.BlockHash,
-	//					err.Error())
-	//			}
-	//		}
-	//	}()
+	case msgbus.ModifyBlock:
+		//go func() {
+		payload, ok := message.Payload.(*mycommon.BlockWithTxRWSet)
+		c.log.Infof("xqh onMessage payload解析，ok= ", ok)
+		c.log.Infof("xqh  onMessage blockheight: %d ", payload.Block.Header.BlockHeight)
+		if ok {
+			block := payload.Block           // 提取 Block
+			txRWSetMap := payload.TxRWSetMap // 提取 TxRWSetMap
+			c.log.Infof("block height: %d", block.Header.BlockHeight)
+			if err := c.BlockCommitter.ReplaceBlock(block, txRWSetMap); err != nil {
+				c.log.Infof("replace block(%d,%x) error %s",
+					block.Header.BlockHeight,
+					block.Header.BlockHash,
+					err.Error())
+			}
+		}
+		//}()
 	case msgbus.TxPoolSignal:
 		if signal, ok := message.Payload.(*txpoolpb.TxPoolSignal); ok {
 			c.blockProposer.OnReceiveTxPoolSignal(signal)
@@ -214,6 +222,7 @@ func (c *CoreEngine) Start() {
 	c.msgBus.Register(msgbus.CommitBlock, c)
 	c.msgBus.Register(msgbus.TxPoolSignal, c)
 	c.msgBus.Register(msgbus.RwSetVerifyFailTxs, c)
+	c.msgBus.Register(msgbus.ModifyBlock, c)
 	//c.msgBus.Register(msgbus.BuildProposal, c)
 	c.blockProposer.Start() //nolint: errcheck
 }

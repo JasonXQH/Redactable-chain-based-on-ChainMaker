@@ -9,6 +9,7 @@ package verifier
 import (
 	"encoding/hex"
 	"fmt"
+	"runtime"
 
 	"chainmaker.org/chainmaker/protocol/v2"
 
@@ -258,7 +259,19 @@ func (v *BlockVerifierImpl) VerifyBlock(block *commonpb.Block, mode protocol.Ver
 // VerifyBlockWithRwSets to check if block is valid
 func (v *BlockVerifierImpl) VerifyBlockWithRwSets(block *commonpb.Block,
 	rwsets []*commonpb.TxRWSet, mode protocol.VerifyMode) (err error) {
-
+	for i := 1; ; i++ {
+		pc, _, _, ok := runtime.Caller(i)
+		if !ok {
+			v.log.Infof("无法获取调用者信息")
+			break
+		}
+		fn := runtime.FuncForPC(pc)
+		if fn == nil {
+			v.log.Infof("无法获取函数名")
+			break
+		}
+		v.log.Infof("xqh 进入 VerifyBlockWithRwSets!! ，调用者函数第 %d 层 为：%s", i, fn.Name())
+	}
 	startTick := utils.CurrentTimeMillisSeconds()
 	if err = utils.IsEmptyBlock(block); err != nil {
 		v.log.Error(err)

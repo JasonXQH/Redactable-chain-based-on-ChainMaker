@@ -1,9 +1,15 @@
 package common
 
 import (
+	commonpb "chainmaker.org/chainmaker/pb-go/v2/common"
 	"encoding/base64"
 	"encoding/hex"
 )
+
+type BlockWithTxRWSet struct {
+	Block      *commonpb.Block
+	TxRWSetMap map[string]*commonpb.TxRWSet
+}
 
 // Base64ToHex 将Base64编码的字符串转换为16进制哈希值
 func Base64ToHex(base64Str string) (string, error) {

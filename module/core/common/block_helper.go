@@ -977,7 +977,9 @@ func (vb *VerifierBlock) ValidateBlockWithRWSets(
 	txRWSetMap map[string]*commonPb.TxRWSet, mode protocol.VerifyMode) (
 	map[string][]*commonPb.ContractEvent, map[string]int64, error) {
 	// 1.block verify
+	vb.log.Infof("xqh 进入 ValidateBlockWithRWSets")
 	if err := IsBlockHashValid(block, vb.chainConf.ChainConfig().Crypto.Hash); err != nil {
+		vb.log.Errorf("xqh verifyBlock IsBlockHashValid(block, vb.chainConf.ChainConfig().Crypto.Hash) errors ")
 		return nil, timeLasts, err
 	}
 	txResultMap := make(map[string]*commonPb.Result, len(block.GetTxs()))
@@ -1046,6 +1048,7 @@ func (vb *VerifierBlock) ValidateBlockWithRWSets(
 	txLasts := utils.CurrentTimeMillisSeconds() - startTxTick
 	timeLasts[TxVerify] = txLasts
 	if err != nil {
+		vb.log.Errorf("xqh verifyblock verifiertx.verifierTxsWithRWSet(block, mode, QuickSyncVerifyMode) 出错")
 		return nil, timeLasts, fmt.Errorf("verify failed [%d](%x), %s ",
 			block.Header.BlockHeight, block.Header.BlockHash, err)
 	}
@@ -1066,6 +1069,7 @@ func (vb *VerifierBlock) ValidateBlockWithRWSets(
 	startRootsTick := utils.CurrentTimeMillisSeconds()
 	err = CheckBlockDigests(block, txHashes, hashType, vb.log)
 	if err != nil {
+		vb.log.Errorf("xqh verifyblock CheckBlockDigests(block, txHashes, hashType, vb.log)出错")
 		return contractEventMap, nil, err
 	}
 	rootsLast := utils.CurrentTimeMillisSeconds() - startRootsTick
@@ -1202,6 +1206,19 @@ func (chain *BlockCommitterImpl) isBlockLegal(blk *commonPb.Block) error {
 }
 
 func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
+	//for i := 1; ; i++ {
+	//	pc, _, _, ok := runtime.Caller(i)
+	//	if !ok {
+	//		chain.log.Infof("无法获取调用者信息")
+	//		break
+	//	}
+	//	fn := runtime.FuncForPC(pc)
+	//	if fn == nil {
+	//		chain.log.Infof("无法获取函数名")
+	//		break
+	//	}
+	//	chain.log.Infof("xqh 进入 AddBlock ，调用者函数第 %d 层 为：%s", i, fn.Name())
+	//}
 	defer func() {
 		if panicError := recover(); panicError != nil {
 			if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
@@ -1265,9 +1282,26 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 	commitBlock := CopyBlock(lastProposed)
 
 	checkLasts := utils.CurrentTimeMillisSeconds() - startTick
-	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err :=
-	//chain.commonCommit.CommitBlock(commitBlock, rwSetMap, conEventMap) // use commitBlock
-		chain.commonReplace.ReplaceBlock(commitBlock, rwSetMap, conEventMap)
+
+	var (
+		dbLasts       int64
+		snapshotLasts int64
+		confLasts     int64
+		otherLasts    int64
+		pubEvent      int64
+		filterLasts   int64
+		blockInfo     *commonPb.BlockInfo
+	)
+	//if commitBlock.Header.BlockHeight == 3 {
+	//
+	//	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err =
+	//		chain.commonReplace.ReplaceBlock(commitBlock, rwSetMap, conEventMap)
+	//	height2, _ := chain.ledgerCache.CurrentHeight()
+	//	chain.log.Infof("xqh replace后 height = %d", height2)
+	//} else {
+	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err =
+		chain.commonCommit.CommitBlock(commitBlock, rwSetMap, conEventMap)
+	//}
 	if err != nil {
 		chain.log.Errorf("block common commit failed: %s, blockHeight: (%d)",
 			err.Error(), lastProposed.Header.BlockHeight)
@@ -1327,6 +1361,19 @@ func (chain *BlockCommitterImpl) AddBlock(block *commonPb.Block) (err error) {
 }
 
 func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap map[string]*commonPb.TxRWSet) (err error) {
+	//for i := 1; ; i++ {
+	//	pc, _, _, ok := runtime.Caller(i)
+	//	if !ok {
+	//		chain.log.Infof("无法获取调用者信息")
+	//		break
+	//	}
+	//	fn := runtime.FuncForPC(pc)
+	//	if fn == nil {
+	//		chain.log.Infof("无法获取函数名")
+	//		break
+	//	}
+	//	chain.log.Infof("xqh 进入 Replace ，调用者函数第 %d 层 为：%s", i, fn.Name())
+	//}
 	defer func() {
 		if panicError := recover(); panicError != nil {
 			if sqlErr := chain.storeHelper.RollBack(block, chain.blockchainStore); sqlErr != nil {
@@ -1348,31 +1395,65 @@ func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap ma
 	}()
 
 	startTick := utils.CurrentTimeMillisSeconds()
-	chain.log.Debugf("replace block(%d,%x)=(%x,%d,%d)", block.Header.BlockHeight, block.Header.BlockHash,
+	chain.log.Debugf("add block(%d,%x)=(%x,%d,%d)", block.Header.BlockHeight, block.Header.BlockHash,
 		block.Header.PreBlockHash, block.Header.TxCount, len(block.Txs))
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
 	//获取区块高度
 	height := block.Header.BlockHeight
+	//结束
+	//验证区块合法性
+	//if err = chain.isBlockLegal(block); err != nil {
+	//	if err == commonErrors.ErrBlockHadBeenCommited {
+	//		chain.log.Warnf("block illegal [%d](hash:%x), %s", height, block.Header.BlockHash, err)
+	//		return err
+	//	}
+	//
+	//	chain.log.Errorf("block illegal [%d](hash:%x), %s", height, block.Header.BlockHash, err)
+	//	return err
+	//}
+	//获取最近的区块和相关数据：
+	//lastProposed, rwSetMap, conEventMap := chain.proposalCache.GetProposedBlock(block)
+	//if lastProposed == nil {
+	//	if lastProposed, rwSetMap, conEventMap, err = chain.checkLastProposedBlock(block); err != nil {
+	//		return err
+	//	}
+	//} else if IfOpenConsensusMessageTurbo(chain.chainConf) {
+	// recover the block for proposer when enable the conensus message turbo function.
+	//lastProposed.Header = block.Header
+	//}
+	// put consensus qc into block
+	//lastProposed.AdditionalData = block.AdditionalData
 
-	//hashString, _ := chameleon.ConvertToHashType(lastProposed.Hash())
-	//chain.log.Infof("xqh测试，修改区块头哈希为 %x,哈希值为: %s", lastProposed.Header.BlockHash, hashString)
-	// shallow copy, create a new block to prevent panic during storage in marshal
 	//提交区块
+	commitBlock := CopyBlock(block)
 
 	checkLasts := utils.CurrentTimeMillisSeconds() - startTick
-	conEventMap := map[string][]*commonPb.ContractEvent(nil)
-	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err :=
-		chain.commonReplace.ReplaceBlock(block, rwSetMap, conEventMap) // use ReplaceBlock
+
+	var (
+		dbLasts       int64
+		snapshotLasts int64
+		confLasts     int64
+		otherLasts    int64
+		pubEvent      int64
+		filterLasts   int64
+		blockInfo     *commonPb.BlockInfo
+	)
+	height2, _ := chain.ledgerCache.CurrentHeight()
+	chain.log.Infof("xqh replace前 height = %d", height2)
+	dbLasts, snapshotLasts, confLasts, otherLasts, pubEvent, filterLasts, blockInfo, err =
+		chain.commonReplace.ReplaceBlock(commitBlock, rwSetMap)
+	height2, _ = chain.ledgerCache.CurrentHeight()
+	chain.log.Infof("xqh replace后 height = %d", height2)
 	if err != nil {
 		chain.log.Errorf("block common commit failed: %s, blockHeight: (%d)",
-			err.Error(), block.Header.BlockHeight)
+			err.Error(), commitBlock.Header.BlockHeight)
 	}
 
 	// Remove txs from txpool. Remove will invoke proposeSignal from txpool if pool size > txcount
 	//与交易池同步
-	//startPoolTick := utils.CurrentTimeMillisSeconds()
-	txRetry, batchRetry, batchIds, err := chain.syncWithTxPool(block, height)
+	startPoolTick := utils.CurrentTimeMillisSeconds()
+	txRetry, batchRetry, batchIds, err := chain.syncWithTxPool(commitBlock, height)
 	if err != nil {
 		return err
 	}
@@ -1381,11 +1462,11 @@ func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap ma
 		chain.log.Infof("remove batchId[%d] and retry batchId[%d] in add block", len(batchIds), len(batchRetry))
 		chain.txPool.RetryAndRemoveTxBatches(batchRetry, batchIds)
 	} else {
-		chain.log.Infof("remove txs[%d] and retry txs[%d] in add block", len(block.Txs), len(txRetry))
-		RetryAndRemoveTxs(chain.txPool, txRetry, block.Txs, chain.log)
+		chain.log.Infof("remove txs[%d] and retry txs[%d] in add block", len(commitBlock.Txs), len(txRetry))
+		RetryAndRemoveTxs(chain.txPool, txRetry, commitBlock.Txs, chain.log)
 	}
 
-	//poolLasts := utils.CurrentTimeMillisSeconds() - startPoolTick
+	poolLasts := utils.CurrentTimeMillisSeconds() - startPoolTick
 
 	chain.proposalCache.ClearProposedBlockAt(height)
 
@@ -1411,10 +1492,10 @@ func (chain *BlockCommitterImpl) ReplaceBlock(block *commonPb.Block, rwSetMap ma
 	interval := curTime - chain.blockInterval
 	chain.blockInterval = curTime
 	chain.log.Infof(
-		"replace block [%d](count:%d,hash:%x)"+
-			"time used(check:%d,db:%d,ss:%d,conf:%d,pubConEvent:%d,filter:%d,other:%d,total:%d,interval:%d)",
-		height, block.Header.TxCount, block.Header.BlockHash,
-		checkLasts, dbLasts, snapshotLasts, confLasts, pubEvent, filterLasts, otherLasts, elapsed, interval)
+		"commit block [%d](count:%d,hash:%x)"+
+			"time used(check:%d,db:%d,ss:%d,conf:%d,pool:%d,pubConEvent:%d,filter:%d,other:%d,total:%d,interval:%d)",
+		height, commitBlock.Header.TxCount, commitBlock.Header.BlockHash,
+		checkLasts, dbLasts, snapshotLasts, confLasts, poolLasts, pubEvent, filterLasts, otherLasts, elapsed, interval)
 	if localconf.ChainMakerConfig.MonitorConfig.Enabled {
 		blockInfoTmp := *blockInfo
 		go chain.updateMetrics(&blockInfoTmp, elapsed, interval)

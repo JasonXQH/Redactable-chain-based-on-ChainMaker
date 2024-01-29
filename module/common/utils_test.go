@@ -6,7 +6,7 @@ import (
 )
 
 func TestBase64ToHex(t *testing.T) {
-	base64Str := "GMYjZPgGdhhiV3yaMbGHNFA2oafb18t3aQ0kB596EX4="
+	base64Str := "vUtLKmLUei9h7Absot0r93KFx5YgWLaKS9M8iYvoE2c="
 	hexstr, _ := Base64ToHex(base64Str)
 	fmt.Println(hexstr)
 }

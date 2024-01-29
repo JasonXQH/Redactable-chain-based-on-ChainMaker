@@ -8,15 +8,13 @@ SPDX-License-Identifier: Apache-2.0
 package rpcserver
 
 import (
-	"context"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-
 	"chainmaker.org/chainmaker-go/module/blockchain"
+	mycommon "chainmaker.org/chainmaker-go/module/common"
+	"chainmaker.org/chainmaker-go/module/common/modify"
 	"chainmaker.org/chainmaker-go/module/snapshot"
 	commonErr "chainmaker.org/chainmaker/common/v2/errors"
 	"chainmaker.org/chainmaker/common/v2/monitor"
+	"chainmaker.org/chainmaker/common/v2/msgbus"
 	"chainmaker.org/chainmaker/localconf/v2"
 	"chainmaker.org/chainmaker/logger/v2"
 	apiPb "chainmaker.org/chainmaker/pb-go/v2/api"
@@ -28,8 +26,13 @@ import (
 	"chainmaker.org/chainmaker/utils/v2"
 	native "chainmaker.org/chainmaker/vm-native/v2"
 	"chainmaker.org/chainmaker/vm/v2"
+	"context"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/time/rate"
+	"strconv"
 )
 
 const (
@@ -96,6 +99,9 @@ func NewApiService(ctx context.Context, chainMakerServer *blockchain.ChainMakerS
 
 // SendRequest - deal received TxRequest
 func (s *ApiService) SendRequest(ctx context.Context, req *commonPb.TxRequest) (*commonPb.TxResponse, error) {
+
+	//return
+
 	s.log.DebugDynamic(func() string {
 		return fmt.Sprintf("SendRequest[%s],payload:%#v,\n----signer:%v\n----endorsers:%+v",
 			req.Payload.TxId, req.Payload, req.Sender, req.Endorsers)
@@ -173,8 +179,10 @@ func (s *ApiService) invoke(tx *commonPb.Transaction, source protocol.TxSource) 
 		resp    = &commonPb.TxResponse{}
 	)
 
-	s.log.Debugf("ApiService invoke tx => id = %v, type = %v", tx.Payload.TxId, tx.Payload.TxType)
-	if tx.Payload.ChainId != SYSTEM_CHAIN {
+	s.log.Info("ApiService invoke tx => id = %v, type = %v", tx.Payload.TxId, tx.Payload.TxType)
+	s.log.Infof("xqh  tx.Payload.TxType: %s, tx.payload.chainid : %s", tx.Payload.TxType, tx.Payload.ChainId)
+	if tx.Payload.ChainId != SYSTEM_CHAIN && tx.Payload.TxType != commonPb.TxType_Modify {
+		s.log.Infof("xqh tx.Payload.ChainId != SYSTEM_CHAIN ")
 		errCode, errMsg = s.validate(tx)
 		if errCode != commonErr.ERR_CODE_OK {
 			resp.Code = commonPb.TxStatusCode_INTERNAL_ERROR
@@ -183,7 +191,6 @@ func (s *ApiService) invoke(tx *commonPb.Transaction, source protocol.TxSource) 
 			return resp
 		}
 	}
-
 	switch tx.Payload.TxType {
 	case commonPb.TxType_QUERY_CONTRACT:
 		return s.dealQuery(tx, source)
@@ -191,6 +198,9 @@ func (s *ApiService) invoke(tx *commonPb.Transaction, source protocol.TxSource) 
 		return s.dealTransact(tx, source)
 	case commonPb.TxType_ARCHIVE:
 		return s.doArchive(tx)
+		// 添加case modify
+	case commonPb.TxType_Modify:
+		return s.dealModify(tx, source)
 	default:
 		return &commonPb.TxResponse{
 			Code:    commonPb.TxStatusCode_INTERNAL_ERROR,
@@ -210,8 +220,8 @@ func (s *ApiService) dealQuery(tx *commonPb.Transaction, source protocol.TxSourc
 		vmMgr   protocol.VmManager
 		resp    = &commonPb.TxResponse{TxId: tx.Payload.TxId}
 	)
-
 	chainId := tx.Payload.ChainId
+	//
 	if store, err = s.chainMakerServer.GetStore(chainId); err != nil {
 		errCode = commonErr.ERR_CODE_GET_STORE
 		errMsg = s.getErrMsg(errCode, err)
@@ -239,6 +249,7 @@ func (s *ApiService) dealQuery(tx *commonPb.Transaction, source protocol.TxSourc
 	var log = logger.GetLoggerByChain(logger.MODULE_SNAPSHOT, chainId)
 
 	var snap protocol.Snapshot
+	//创建一个用于查询的快照，如果失败，返回错误信息。
 	snap, err = snapshot.NewQuerySnapshot(store, log)
 	if err != nil {
 		s.log.Error(err)
@@ -372,6 +383,45 @@ func (s *ApiService) dealQuery(tx *commonPb.Transaction, source protocol.TxSourc
 	resp.Message = commonPb.TxStatusCode_SUCCESS.String()
 	resp.ContractResult = txResult
 	resp.TxId = tx.Payload.TxId
+	return resp
+}
+func (s *ApiService) dealModify(tx *commonPb.Transaction, source protocol.TxSource) *commonPb.TxResponse {
+	var (
+		resp = &commonPb.TxResponse{TxId: tx.Payload.TxId}
+	)
+	chainId := tx.Payload.ChainId
+	blockHeight := uint64(0)
+	for _, kv := range tx.Payload.Parameters {
+		if kv != nil && kv.Key == "blockHeight" {
+			// 将 Value 字段从 []byte 转换为 string，然后转换为 uint64
+			valueStr := string(kv.Value)
+			var err error
+			blockHeight, err = strconv.ParseUint(valueStr, 10, 64)
+			if err != nil {
+				s.log.Errorf("Error converting blockHeight to uint64: %s\n", err)
+			}
+			break // 找到后即退出循环
+		}
+	}
+	if blockHeight != 0 {
+		newBlock, _, txRWSetMap := modify.ModifyBlockByHeight(blockHeight)
+
+		payload := &mycommon.BlockWithTxRWSet{
+			Block:      newBlock,
+			TxRWSetMap: txRWSetMap,
+		}
+		bc, _ := s.chainMakerServer.GetBlockchain(chainId)
+		message := &msgbus.Message{
+			Topic:   msgbus.ModifyBlock,
+			Payload: payload,
+			// 其他必要的字段...
+		}
+		s.log.Infof("xqh dealModify 准备发送message")
+		bc.OnMessage(message)
+	} else {
+		s.log.Errorf("xqh dealModify height非法")
+	}
+
 	return resp
 }
 

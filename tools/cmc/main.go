@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"chainmaker.org/chainmaker-go/tools/cmc/replace"
 	"strings"
 
 	"chainmaker.org/chainmaker-go/tools/cmc/address"
@@ -47,6 +48,8 @@ For detailed logs, please see ./sdk.log
 	mainCmd.AddCommand(paillier.PaillierCMD())
 	mainCmd.AddCommand(archive.NewArchiveCMD())
 	mainCmd.AddCommand(query.NewQueryOnChainCMD())
+	//xqh添加
+	mainCmd.AddCommand(replace.NewReplaceOnChainCMD())
 	mainCmd.AddCommand(payload.NewPayloadCMD())
 	mainCmd.AddCommand(console.NewConsoleCMD(mainCmd))
 	mainCmd.AddCommand(bulletproofs.BulletproofsCMD())
